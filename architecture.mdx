@@ -1,0 +1,104 @@
+---
+title: "Xinity AI architecture: the shared-database pattern"
+description: "How the gateway, dashboard, daemon, CLI, and infoserver coordinate through a shared PostgreSQL database to serve models on your infrastructure."
+---
+
+Xinity AI is built around a **shared-database pattern**: all services coordinate through a common PostgreSQL schema rather than making direct service-to-service calls. This keeps each service thin and independently deployable while ensuring consistency across the system.
+
+## System diagram
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                      Your Infrastructure                     │
+│                                                              │
+│  ┌──────────────┐    ┌──────────────┐    ┌────────────────┐  │
+│  │  Dashboard   │◄──►│   Gateway    │◄──►│    Daemon(s)   │  │
+│  │  (SvelteKit) │    │  (API proxy) │    │  (GPU nodes)   │  │
+│  │              │    │              │    │                │  │
+│  │  • RBAC      │    │  • OpenAI-   │    │  • Ollama /    │  │
+│  │  • SSO/SAML  │    │    compat.   │    │    vLLM        │  │
+│  │  • Usage     │    │  • Routing   │    │  • Model mgmt  │  │
+│  │    tracking  │    │  • Rate      │    │  • Auto-scale  │  │
+│  │  • MCP       │    │    limiting  │    │                │  │
+│  └──────┬───────┘    └──────┬───────┘    └───────┬────────┘  │
+│         │                   │                    │           │
+│         └─────────┬─────────┘────────────────────┘           │
+│                   │                              │           │
+│             ┌─────▼──────┐               ┌───────▼────────┐  │
+│             │ PostgreSQL │               │  Infoserver    │  │
+│             │   + Redis  │               │ (model schema) │  │
+│             └────────────┘               └────────────────┘  │
+│                                                              │
+│               Nothing leaves this box.                       │
+└──────────────────────────────────────────────────────────────┘
+```
+
+## Two deployment roles
+
+Every Xinity deployment is organized into two distinct roles:
+
+**Control plane** — runs the gateway, dashboard, database (PostgreSQL + Redis), and infoserver. This is the management and API surface. You deploy one control plane per environment.
+
+**Inference nodes** — each GPU machine runs a daemon alongside Ollama or vLLM. The daemon connects to the shared database to receive deployment instructions and report state. You can have one or many inference nodes; the dashboard orchestrates them automatically.
+
+The control plane and inference nodes communicate exclusively through the shared database — there are no direct service-to-service calls between them.
+
+## Components
+
+<CardGroup cols={2}>
+  <Card title="Gateway" icon="arrows-left-right">
+    The data-plane entry point for all inference traffic. Exposes an OpenAI-compatible API (`/v1/chat/completions`, `/v1/embeddings`, `/v1/models`, and more). Handles authentication, model resolution, load balancing across nodes, and asynchronous call logging.
+  </Card>
+  <Card title="Dashboard" icon="gauge">
+    SvelteKit admin UI and oRPC API server. Manages users, organizations, model deployments, API keys, and SSO. Runs two background services: a deployment sync service (reconciles desired vs. actual state) and a notification scheduler. Also exposes an MCP server at `/mcp`.
+  </Card>
+  <Card title="Daemon" icon="microchip">
+    A lightweight agent that runs on every GPU machine. Detects hardware (NVIDIA, AMD, Intel GPUs or CPU-only), registers the node in the database, and drives Ollama or vLLM to match the planned model installations written by the dashboard's sync service.
+  </Card>
+  <Card title="CLI" icon="terminal">
+    The operator tool for installing, configuring, and managing Xinity services. Handles the full lifecycle: downloads binaries from GitHub Releases with SHA256 verification, generates systemd unit files with security hardening, and supports remote installation over SSH. Also exposes all dashboard API operations via `xinity act`.
+  </Card>
+  <Card title="Infoserver" icon="book">
+    A stateless model catalog service. Reads a YAML catalog (with support for recursive remote includes) and serves model metadata — name, weight size, supported drivers, tags — over HTTP. Consumed by the gateway, daemon, and dashboard with in-memory TTL caching.
+  </Card>
+  <Card title="Common DB" icon="database">
+    The shared Drizzle ORM schema, migrations, and database utilities. Every other service depends on this package. Provides a migration check gate so services cannot query the database until it is up to date.
+  </Card>
+</CardGroup>
+
+## The shared-database pattern
+
+All three runtime services — gateway, dashboard, and daemon — read from and write to the same PostgreSQL database. There are no direct HTTP calls between them.
+
+| Service | Writes to | Reads from |
+|---|---|---|
+| Dashboard | `modelDeployment`, `modelInstallation`, users, orgs, API keys | All tables |
+| Daemon | `aiNode` (hardware registration), `modelInstallationState` (lifecycle) | `modelInstallation` for this node |
+| Gateway | `apiCall` (request logs) | `aiApiKey`, `modelDeployment`, `modelInstallation`, `aiNode` |
+
+**Dashboard → Daemon:** The dashboard's deployment sync service writes `modelInstallation` rows that represent the planned state. The daemon's sync loop reads these and drives local inference drivers to match. PostgreSQL `NOTIFY` provides low-latency push when changes are made, so the daemon responds immediately rather than waiting for the next poll interval.
+
+**Daemon → Dashboard:** The daemon writes `modelInstallationState` (actual lifecycle state) and `aiNode` (hardware availability). The dashboard reads these for status display, orchestration planning, and notification triggers.
+
+**Redis** is used exclusively by the gateway for ephemeral state: authentication caching, load balancer coordination (counters, connection gauges, session affinity keys), and the responses API store.
+
+## Model deployment lifecycle
+
+When you create a deployment, the following sequence occurs automatically:
+
+<Steps>
+  <Step title="Operator creates a deployment">
+    You run `xinity act deployment.create` (or use the dashboard UI). The dashboard writes a `modelDeployment` row representing the desired state — which model should be available and on which nodes.
+  </Step>
+  <Step title="Sync service plans installations">
+    The dashboard's deployment sync service runs immediately (and every 5 minutes as a fallback). It reads enabled deployments, compares them against existing `modelInstallation` rows, and uses a first-fit bin-packing strategy to plan installations across available nodes with sufficient capacity. It writes the planned `modelInstallation` rows to the database and sends a PostgreSQL `NOTIFY` to the relevant daemon(s).
+  </Step>
+  <Step title="Daemon pulls the model">
+    The daemon receives the notification, reads its assigned `modelInstallation` rows, and drives the local inference engine. For Ollama, it pulls the model with streaming progress reported back to `modelInstallationState`. For vLLM, it manages a systemd template unit or Docker container, polls the health endpoint, and fires a warmup request on readiness.
+  </Step>
+  <Step title="Gateway routes traffic">
+    Once `modelInstallationState` shows `ready`, the gateway's host selection logic includes this node when routing requests for that model. The gateway uses round-robin, random, or least-connections load balancing across all ready nodes. Canary deployments route traffic probabilistically between model variants based on time-interpolated progress.
+  </Step>
+</Steps>
+
+The dashboard's notification scheduler detects state transitions (deployment ready, node offline, capacity warnings) and sends notifications to organization members automatically.

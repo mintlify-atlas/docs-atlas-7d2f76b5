@@ -1,0 +1,57 @@
+---
+title: "xinity doctor: check system health"
+description: "xinity doctor checks systemd service states, database connectivity, and service health endpoints on your Xinity installation and reports any issues found."
+---
+
+`xinity doctor` gives you a quick summary of your Xinity AI installation's health. It checks each component in sequence and reports any issues it finds, making it the first command to run when something appears to be wrong.
+
+## Usage
+
+```bash
+xinity doctor [flags]
+```
+
+## Flags
+
+| Flag | Description |
+| --- | --- |
+| `--verbose` | Print detailed output for each check instead of a summary |
+| `--target-host <user@host>` | Run checks against a remote Linux server over SSH |
+
+## What it checks
+
+| Check | Description |
+| --- | --- |
+| Systemd service states | Verifies that each installed Xinity service unit is active and not failed |
+| Docker containers | Inspects any Xinity-related containers if Docker is present |
+| Database connectivity | Attempts a connection using `DB_CONNECTION_URL` and reports the result |
+| Service health endpoints | Calls the health endpoint of each running service and checks for a successful response |
+| Configuration state | Validates that required environment files and secret files are present and readable |
+
+## Examples
+
+Run a standard health check on the local machine:
+
+```bash
+xinity doctor
+```
+
+Print detailed output for each check:
+
+```bash
+xinity doctor --verbose
+```
+
+Check a remote server:
+
+```bash
+xinity doctor --target-host user@server
+```
+
+<Tip>
+Run `xinity doctor` immediately after `xinity up` to confirm that all services started correctly and configuration was applied as expected.
+</Tip>
+
+<Note>
+Database connectivity checks require `DB_CONNECTION_URL` to be set in your environment or in the service's configuration file. If it is not set, that check is skipped.
+</Note>

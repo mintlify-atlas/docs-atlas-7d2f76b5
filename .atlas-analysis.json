@@ -1,0 +1,129 @@
+{
+  "projectType": "saas",
+  "projectName": "Xinity AI",
+  "projectDescription": "An open-source, self-hosted AI platform for enterprises that gives you an OpenAI-compatible API, management dashboard, multi-node orchestration, and enterprise auth — with zero data egress.",
+  "theme": "luma",
+  "primaryColor": "#bd39c7",
+  "lightColor": "#eb5c8c",
+  "darkColor": "#bb4783",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart",
+              "architecture"
+            ]
+          },
+          {
+            "group": "Deployment",
+            "pages": [
+              "deployment/overview",
+              "deployment/cli",
+              "deployment/docker",
+              "deployment/nixos",
+              "deployment/inference-nodes"
+            ]
+          },
+          {
+            "group": "Using Xinity",
+            "pages": [
+              "guides/openai-api",
+              "guides/dashboard",
+              "guides/model-deployments",
+              "guides/api-keys",
+              "guides/organizations",
+              "guides/mcp-server"
+            ]
+          },
+          {
+            "group": "Advanced",
+            "pages": [
+              "advanced/model-catalog",
+              "advanced/fine-tuning",
+              "advanced/sso-auth",
+              "advanced/secrets",
+              "advanced/observability"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "CLI Reference",
+        "groups": [
+          {
+            "group": "Commands",
+            "pages": [
+              "cli/overview",
+              "cli/up",
+              "cli/act",
+              "cli/doctor",
+              "cli/configure",
+              "cli/update"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "OpenAI-Compatible API",
+            "pages": [
+              "api/overview",
+              "api/chat-completions",
+              "api/completions",
+              "api/embeddings",
+              "api/rerank",
+              "api/models"
+            ]
+          },
+          {
+            "group": "Management API",
+            "pages": [
+              "api/management-overview",
+              "api/deployments",
+              "api/organizations",
+              "api/api-keys"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "OpenAI-compatible API — drop-in replacement for existing SDK code, just point base_url at your instance",
+    "Multi-model and multi-GPU orchestration with automatic load balancing and least-connections routing",
+    "Web dashboard with RBAC — five roles (owner, admin, member, labeler, viewer) and full audit trail",
+    "Enterprise auth — SSO/SAML, 2FA/TOTP, passkeys (WebAuthn), and multi-tenant organization isolation",
+    "Model deployment lifecycle management — pull, install, monitor, and canary-deploy LLMs from the dashboard",
+    "Fine-tuning and distillation pipeline for custom model creation",
+    "MCP server — let AI assistants manage your infrastructure via natural language",
+    "Three deployment methods: Xinity CLI (systemd), Docker Compose, and NixOS flake modules",
+    "Usage tracking, call logging, and data labeling for every inference request",
+    "Inference engine agnostic — uses Ollama and vLLM under the hood, switchable per model",
+    "Zero data egress — all processing stays on your own hardware"
+  ],
+  "publicApiSurface": [
+    "POST /v1/chat/completions — OpenAI-compatible chat endpoint (streaming and non-streaming)",
+    "POST /v1/completions — Legacy text completions",
+    "POST /v1/embeddings — Embedding generation",
+    "POST /v1/rerank — Reranking",
+    "GET /v1/models — List available deployed models",
+    "POST /v1/responses — Responses API with persistent store",
+    "GET/POST /api/[...rest] — Dashboard management REST API (OpenAPI schema at /api/openapi.json)",
+    "GET /mcp — Model Context Protocol endpoint for AI assistant integrations",
+    "xinity up <component> — Install/update gateway, dashboard, daemon, db, or all",
+    "xinity act <route> [data] — Call any dashboard API route from the CLI",
+    "xinity doctor — System health check",
+    "xinity configure <component> — Reconfigure a service interactively",
+    "xinity update — Update CLI and installed components",
+    "GET /api/v1/models — Infoserver: list all models in the catalog",
+    "GET /api/v1/models/:specifier — Infoserver: look up a specific model",
+    "POST /api/v1/models/resolve — Infoserver: batch-resolve model specifiers"
+  ]
+}

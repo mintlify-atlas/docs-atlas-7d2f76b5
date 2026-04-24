@@ -1,0 +1,98 @@
+---
+title: "Configure SSO and enterprise auth for Xinity AI"
+description: "Set up SAML or OIDC single sign-on, enable 2FA with TOTP or passkeys, and manage enterprise authentication for your Xinity AI organization."
+---
+
+Xinity AI supports enterprise authentication out of the box: single sign-on via OIDC and SAML, two-factor authentication with TOTP authenticator apps, passkeys (WebAuthn), and multi-tenant organization isolation. Five roles control access within an organization: owner, admin, member, labeler, and viewer.
+
+SSO configuration is org-scoped — each organization in your Xinity instance can be connected to a different identity provider. This allows separate business units or customers to use their own IdP without sharing credentials.
+
+<Warning>
+  SSO and SAML configuration procedures are excluded from the MCP server for security. These settings must be configured through the dashboard UI or the REST API directly.
+</Warning>
+
+## Single sign-on
+
+### OIDC setup
+
+<Steps>
+  <Step title="Open SSO settings">
+    Navigate to **Instance Settings → SSO** in the dashboard. Select your organization and choose **OIDC** as the provider type.
+  </Step>
+  <Step title="Enter your identity provider details">
+    Provide the following values from your identity provider:
+
+    | Field | Description |
+    |-------|-------------|
+    | Client ID | The OAuth 2.0 client ID issued by your IdP |
+    | Client Secret | The corresponding client secret |
+    | Discovery URL | The OIDC well-known configuration endpoint (e.g., `https://accounts.example.com/.well-known/openid-configuration`) |
+  </Step>
+  <Step title="Configure your identity provider">
+    Register the Xinity callback URL as a redirect URI in your IdP. The callback URL follows the format:
+
+    ```
+    https://your-dashboard/api/auth/callback/<provider-id>
+    ```
+  </Step>
+  <Step title="Test the connection">
+    Save the configuration and use the **Test** button to verify that the IdP metadata is reachable and the client credentials are accepted.
+  </Step>
+</Steps>
+
+### SAML setup
+
+<Steps>
+  <Step title="Open SSO settings">
+    Navigate to **Instance Settings → SSO** and choose **SAML** as the provider type.
+  </Step>
+  <Step title="Provide IdP metadata">
+    Supply your identity provider's metadata using either:
+
+    - **Metadata URL** — a URL pointing to the IdP's metadata XML (recommended; Xinity fetches and caches it automatically)
+    - **Metadata XML** — paste the XML directly if your IdP does not expose a metadata URL
+
+  </Step>
+  <Step title="Configure your identity provider">
+    Provide your IdP with the Xinity service provider details:
+
+    | SP field | Value |
+    |----------|-------|
+    | Entity ID | Shown in the dashboard after saving the initial SAML config |
+    | ACS URL (Assertion Consumer Service) | Shown in the dashboard after saving the initial SAML config |
+
+    Map the `email` and `name` attributes in your IdP to the corresponding SAML attribute names expected by Xinity.
+  </Step>
+</Steps>
+
+## Two-factor authentication
+
+### TOTP (authenticator app)
+
+Individual users enable TOTP under **Settings → Security → Two-Factor Authentication**. The setup flow generates a QR code compatible with any TOTP authenticator (Google Authenticator, Authy, 1Password, etc.) and prompts for a verification code before activating.
+
+Admins can require 2FA org-wide from **Instance Settings → Security**. Users who have not yet enrolled are prompted on next login.
+
+### Passkeys (WebAuthn)
+
+Passkeys provide phishing-resistant authentication using platform authenticators (Touch ID, Face ID, Windows Hello) or hardware security keys.
+
+Users register a passkey under **Settings → Security → Add Passkey**. Multiple passkeys can be registered on a single account.
+
+<Tip>
+  Passkeys are bound to the origin of your Xinity instance. If you change your dashboard domain, existing passkeys will stop working and users will need to re-register.
+</Tip>
+
+## Role reference
+
+| Role | Capabilities |
+|------|-------------|
+| **Owner** | Full access including billing and org deletion |
+| **Admin** | Manage users, deployments, API keys, SSO, and 2FA policy |
+| **Member** | Create and manage deployments and API keys |
+| **Labeler** | View and label inference calls in the Data section |
+| **Viewer** | Read-only access to the dashboard |
+
+## API keys
+
+API keys are issued per application in **Settings → API Keys**. Each key is scoped to an organization. Use keys for gateway inference requests (`Authorization: Bearer sk_...`) and dashboard management operations (`x-api-key: sk_...`). See [API keys guide](/guides/api-keys) for the full workflow.

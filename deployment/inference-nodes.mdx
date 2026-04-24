@@ -1,0 +1,101 @@
+---
+title: "Add GPU inference nodes to your Xinity AI deployment"
+description: "Install the Xinity daemon on each GPU machine to connect it to your control plane. The daemon detects GPUs, registers nodes, and syncs model installations."
+---
+
+Inference nodes are GPU machines that run the Xinity daemon alongside Ollama or vLLM. The daemon is a long-running process that bridges desired state (stored in the shared PostgreSQL database) with actual model installations on the GPU hardware. You add nodes to any running control plane — Docker Compose, NixOS, or CLI — using the same steps.
+
+## How the daemon works
+
+The daemon on each GPU machine:
+
+1. Connects to the shared PostgreSQL database using `DB_CONNECTION_URL`
+2. Detects available GPUs via `nvidia-smi`, `rocm-smi`, or `xpu-smi` and reports VRAM capacity
+3. Registers itself in the `aiNode` table so it appears in the dashboard
+4. Enters a sync loop: reads `modelInstallation` rows, pulls missing models via Ollama (or starts vLLM instances for larger models), and writes status back to the database
+5. Listens for PostgreSQL `NOTIFY` events for low-latency push updates — no polling delay when a new deployment is created
+
+The daemon needs **direct network access to PostgreSQL**. If PostgreSQL is running inside Docker on the control plane host, either expose port 5432 on the host (`ports: ["5432:5432"]` in your compose file) or use Docker host networking.
+
+## Add an inference node
+
+<Steps>
+  <Step title="Install the CLI on the GPU machine">
+    Run the install script on the inference node. It downloads the binary for your platform and installs it to `~/.local/bin/xinity`.
+
+    ```bash
+    curl -fsSL https://github.com/xinity-ai/xinity-ai/releases/latest/download/install.sh | bash
+    ```
+  </Step>
+
+  <Step title="Install and configure Ollama">
+    The daemon manages models through Ollama. Install it and configure the network binding so the daemon can reach it:
+
+    ```bash
+    xinity up infra-ollama
+    ```
+
+    This installs Ollama if not already present, configures it to bind on the correct network interface, and writes the Ollama URL into the daemon's environment file.
+  </Step>
+
+  <Step title="Install the daemon">
+    ```bash
+    xinity up daemon
+    ```
+
+    When prompted, provide the `DB_CONNECTION_URL` used by your control plane. For example:
+
+    ```bash
+    DB_CONNECTION_URL=postgresql://xinity:password@control-plane-host:5432/xinity
+    ```
+
+    The daemon is installed as a systemd service and starts immediately.
+  </Step>
+
+  <Step title="Verify the node is registered">
+    Check that the daemon and its dependencies are healthy:
+
+    ```bash
+    xinity doctor
+    ```
+
+    Then open the dashboard and navigate to **Nodes**. Your new GPU machine should appear with its detected GPU model and available VRAM.
+  </Step>
+</Steps>
+
+## Node registration and GPU detection
+
+When the daemon starts for the first time, it:
+
+- Runs `nvidia-smi` (NVIDIA), `rocm-smi` (AMD), or `xpu-smi` (Intel) to discover GPUs
+- Records each GPU's model name and VRAM capacity
+- Creates or updates a row in the `aiNode` table with the node's hostname and GPU details
+
+If a node restarts, it updates its row rather than creating a duplicate. Node health is visible in the dashboard.
+
+## The sync loop
+
+After registration, the daemon continuously reconciles desired state with actual state:
+
+1. Reads `modelInstallation` rows assigned to this node from the database
+2. For each row in `pending` state, begins pulling the model via Ollama or starts a vLLM process
+3. Updates the row status to `downloading`, `installing`, or `ready` as the operation progresses
+4. Listens on a PostgreSQL `NOTIFY` channel so new deployments are picked up with low latency — typically within a second
+
+Model downloads happen in the background. You can watch progress in the dashboard or by polling `xinity act deployment.list '{"withStatus": true}'` from a machine with the CLI configured.
+
+## Mixing control plane methods
+
+The daemon setup is identical regardless of how the control plane is deployed:
+
+| Control plane | Daemon setup |
+|---|---|
+| Docker Compose | Expose port 5432 from the Postgres container; install CLI and run `xinity up daemon` on each GPU machine |
+| NixOS | Use `nixosModules.default` on the GPU machine; provide the control plane's `DB_CONNECTION_URL` in `envFiles` |
+| CLI (systemd) | Install the CLI on each GPU machine and run `xinity up daemon` with the shared `DB_CONNECTION_URL` |
+
+See [NixOS deployment](/deployment/nixos#inference-node-daemon-module) for the NixOS-specific daemon configuration.
+
+<Note>
+  The daemon requires direct network access to PostgreSQL. It does not communicate with the gateway or dashboard — only with the database.
+</Note>

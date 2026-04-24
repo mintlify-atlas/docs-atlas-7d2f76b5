@@ -1,0 +1,75 @@
+---
+title: "xinity act: call dashboard API routes"
+description: "xinity act calls any dashboard API route directly from the terminal. Discover routes, pass JSON data inline or from stdin, and authenticate with --api-key."
+---
+
+`xinity act` lets you call any route exposed by the dashboard's oRPC API without opening a browser. It loads the dashboard's router at runtime to discover available routes, so the route list always reflects what your running instance supports.
+
+## Usage
+
+```bash
+xinity act <route> [data] [flags]
+```
+
+## Flags
+
+| Flag | Description |
+| --- | --- |
+| `--list-routes` | Print all available routes and exit |
+| `--api-key <key>` | API key to use for authentication (overrides `XINITY_API_KEY`) |
+
+## Passing data
+
+You can supply input to a route in three ways:
+
+- **Inline JSON string** — pass a JSON object as the second argument
+- **Stdin** — pass `-` as the second argument and pipe JSON into the command
+- **Omitted** — the CLI enters an interactive schema-driven prompt for each required field
+
+## Examples
+
+List all available routes:
+
+```bash
+xinity act --list-routes
+```
+
+Call a route with no required input:
+
+```bash
+xinity act deployment.list
+```
+
+Call a route with inline JSON:
+
+```bash
+xinity act deployment.create '{"name": "llama3", "publicSpecifier": "llama3", "modelSpecifier": "llama3:latest", "enabled": true}'
+```
+
+Read input from stdin:
+
+```bash
+echo '{"name": "test"}' | xinity act organization.create -
+```
+
+Authenticate with an explicit API key:
+
+```bash
+xinity act user.getSelf --api-key sk-...
+```
+
+Run the onboarding wizard interactively:
+
+```bash
+xinity act onboarding.cli
+```
+
+<Tip>
+After a fresh deployment, run `xinity act onboarding.cli` to create your admin account, organization, and API key entirely from the terminal without opening a browser. The CLI saves the returned API key to your local config automatically.
+</Tip>
+
+## Route discovery
+
+Routes are resolved by loading the dashboard's oRPC router at runtime against the configured `XINITY_DASHBOARD_URL`. Shell completion also uses this mechanism, so tab-completing a route name requires the dashboard to be reachable.
+
+Use `xinity configure dashboardUrl <url>` to point the CLI at a non-default dashboard address before running `xinity act`.

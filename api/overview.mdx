@@ -1,0 +1,134 @@
+---
+title: "Xinity AI API overview and authentication"
+description: "Xinity exposes an OpenAI-compatible inference API and a REST management API. Both use Bearer token authentication with dashboard API keys."
+---
+
+Xinity AI provides two HTTP APIs: the **gateway inference API**, which is OpenAI-compatible and handles all model inference traffic, and the **dashboard management API**, which covers deployments, organizations, API keys, and other administrative resources. Both APIs authenticate with the same `sk_...` keys generated in the dashboard.
+
+## Base URLs
+
+| API | Base URL | Description |
+|-----|----------|-------------|
+| Inference (gateway) | `https://your-instance/v1` | OpenAI-compatible endpoints, port 3000 by default |
+| Management (dashboard) | `https://your-dashboard/api` | REST management endpoints |
+
+## Authentication
+
+Both APIs accept API keys using the `Authorization` header with a `Bearer` token. The management API also accepts the key in an `x-api-key` header.
+
+```bash
+# Inference API
+Authorization: Bearer sk_...
+
+# Management API — both forms are accepted
+Authorization: Bearer sk_...
+x-api-key: sk_...
+```
+
+Keys are created in the dashboard under **Dashboard → API Keys**, or via the [management API](/api/api-keys). Each key is scoped to an organization. The full `sk_...` value is shown only once at creation time — store it securely.
+
+<Note>
+Keys are scoped to one organization. A key created in Org A cannot access models or data belonging to Org B.
+</Note>
+
+## Creating an API key
+
+<Steps>
+  <Step title="Open the dashboard">
+    Navigate to your Xinity dashboard instance.
+  </Step>
+  <Step title="Go to API Keys">
+    Select your organization, then open **Settings → API Keys**.
+  </Step>
+  <Step title="Create a key">
+    Click **New key**, give it a name, and optionally associate it with an application.
+  </Step>
+  <Step title="Copy the key">
+    The full `sk_...` value is displayed once. Copy it now — it cannot be retrieved later.
+  </Step>
+</Steps>
+
+## OpenAPI schema
+
+The full OpenAPI schema for the management API is available at:
+
+```
+GET https://your-dashboard/api/openapi.json
+```
+
+You can also discover routes interactively using the CLI:
+
+```bash
+xinity act --list-routes
+```
+
+## Error responses
+
+Both APIs return errors in JSON format. Common HTTP status codes:
+
+| Status | Meaning |
+|--------|---------|
+| `401` | Missing or invalid API key |
+| `403` | Key valid but insufficient permissions (e.g. org mismatch) |
+| `404` | Requested model or resource not found |
+| `429` | Rate limit exceeded |
+
+```json
+{
+  "error": {
+    "message": "API Key not found",
+    "type": "authentication_error",
+    "param": null,
+    "code": null
+  }
+}
+```
+
+## Inference endpoints at a glance
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/v1/chat/completions` | Chat completions (streaming + non-streaming) |
+| `POST` | `/v1/completions` | Legacy text completions |
+| `POST` | `/v1/embeddings` | Generate embedding vectors |
+| `POST` | `/v1/rerank` | Rerank documents by relevance |
+| `GET` | `/v1/models` | List ready deployments |
+| `POST` | `/v1/responses` | Responses API with persistent store (stateful multi-turn) |
+
+### Responses API
+
+`POST /v1/responses` implements the OpenAI Responses API with a Redis-backed persistent store. It supports stateful multi-turn conversations by accepting a `previous_response_id` to continue an existing thread. The response object and conversation state are stored server-side, so clients don't need to resend the full message history on every turn.
+
+```bash
+curl https://your-instance/v1/responses \
+  -H "Authorization: Bearer sk_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "phi-3-mini",
+    "input": "What is the capital of France?"
+  }'
+```
+
+To continue a conversation, pass `previous_response_id` from the previous response:
+
+```bash
+curl https://your-instance/v1/responses \
+  -H "Authorization: Bearer sk_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "phi-3-mini",
+    "input": "And what language do they speak there?",
+    "previous_response_id": "resp_abc123"
+  }'
+```
+
+## Explore the APIs
+
+<CardGroup cols={2}>
+  <Card title="Inference API" icon="bolt" href="/api/chat-completions">
+    OpenAI-compatible endpoints for chat, completions, embeddings, rerank, and model listing.
+  </Card>
+  <Card title="Management API" icon="sliders" href="/api/management-overview">
+    REST endpoints for managing deployments, organizations, and API keys.
+  </Card>
+</CardGroup>

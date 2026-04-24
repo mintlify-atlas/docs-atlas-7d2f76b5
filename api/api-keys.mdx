@@ -1,0 +1,90 @@
+---
+title: "Management API: API keys"
+description: "Create, list, and revoke gateway API keys via the Xinity management API. Keys authenticate inference requests to /v1/* and are scoped to an organization."
+---
+
+Gateway API keys authenticate requests to the Xinity inference API (`/v1/*`). Each key is scoped to one organization and can optionally be associated with an application for usage tracking. The full `sk_...` value is returned only once at creation time.
+
+## List API keys
+
+```bash
+GET /api/ai-api-key
+x-api-key: sk_...
+```
+
+```bash
+curl https://your-dashboard/api/ai-api-key \
+  -H "x-api-key: sk_..."
+```
+
+Or via CLI:
+
+```bash
+xinity act aiApiKey.list
+```
+
+## Create an API key
+
+```bash
+POST /api/ai-api-key
+x-api-key: sk_...
+Content-Type: application/json
+```
+
+<ParamField body="name" type="string" required>
+  A descriptive label for the key (e.g. `"Sales Bot"`, `"Nightly ETL"`).
+</ParamField>
+
+<ParamField body="organizationId" type="string" required>
+  The organization this key grants access to.
+</ParamField>
+
+<ParamField body="applicationId" type="string">
+  Optional application grouping for usage tracking. Create applications in the dashboard under **API Keys → Applications**.
+</ParamField>
+
+```bash
+curl -X POST https://your-dashboard/api/ai-api-key \
+  -H "x-api-key: sk_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Sales Bot",
+    "organizationId": "org_123"
+  }'
+```
+
+## Response
+
+```json
+{
+  "id": "key_abc123",
+  "name": "Sales Bot",
+  "key": "sk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "organizationId": "org_123",
+  "createdAt": "2024-01-15T10:00:00Z"
+}
+```
+
+<Warning>
+The `key` field is returned **only once** at creation. Copy it immediately and store it securely — it cannot be retrieved again.
+</Warning>
+
+## Delete an API key
+
+```bash
+DELETE /api/ai-api-key/:id
+x-api-key: sk_...
+```
+
+Deletion is immediate. Any requests using the deleted key will receive a `401` error.
+
+```bash
+curl -X DELETE https://your-dashboard/api/ai-api-key/key_abc123 \
+  -H "x-api-key: sk_..."
+```
+
+Or via CLI:
+
+```bash
+xinity act aiApiKey.delete '{"id": "key_abc123"}'
+```

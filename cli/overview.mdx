@@ -1,0 +1,104 @@
+---
+title: "Xinity CLI reference"
+description: "The xinity CLI deploys and manages the Xinity AI stack on Linux. Install with one curl command; use up, act, doctor, configure, and update subcommands."
+---
+
+The `xinity` CLI is the primary tool for deploying and operating the Xinity AI platform on Linux servers. It manages services as systemd units, handles interactive configuration, and provides direct access to dashboard API routes from your terminal.
+
+## Installation
+
+Run the one-line installer to download, verify, and install the CLI binary to `~/.local/bin`:
+
+```bash
+curl -fsSL https://github.com/xinity-ai/xinity-ai/releases/latest/download/install.sh | bash
+```
+
+The installer detects your platform (Linux x64 or arm64), downloads the matching binary, verifies its SHA256 checksum, and installs it. If `~/.local/bin` is not in your `$PATH`, the installer will tell you what to add to your shell profile.
+
+**Prerequisites:** `curl` and `unzip` must be installed.
+
+### Installer options
+
+Pass options after `--` when piping to bash:
+
+```bash
+curl -fsSL https://github.com/xinity-ai/xinity-ai/releases/latest/download/install.sh | bash -s -- --version v1.2.0
+
+curl -fsSL https://github.com/xinity-ai/xinity-ai/releases/latest/download/install.sh | bash -s -- --prefix /usr/local/bin
+```
+
+| Flag | Description | Default |
+| --- | --- | --- |
+| `--version VERSION` | Install a specific release tag | `latest` |
+| `--prefix DIR` | Installation directory | `~/.local/bin` |
+| `--repo OWNER/REPO` | GitHub repository | `xinity-ai/xinity-ai` |
+
+<Note>
+For private or internal forks, set `GITHUB_TOKEN` in your environment or run `gh auth login` before installing. Private repo downloads also require `jq`.
+</Note>
+
+## Shell completion
+
+The CLI supports tab completion for bash, zsh, and fish. Completion includes dynamic resolution of `xinity act` route names from the live dashboard.
+
+<CodeGroup>
+
+```bash bash
+xinity completion bash >> ~/.bashrc
+# or source immediately:
+eval "$(xinity completion bash)"
+```
+
+```bash zsh
+xinity completion zsh > ~/.zsh/completions/_xinity
+# ensure fpath includes that directory:
+#   fpath=(~/.zsh/completions $fpath)
+# for oh-my-zsh:
+#   xinity completion zsh > ~/.oh-my-zsh/completions/_xinity
+```
+
+```bash fish
+xinity completion fish > ~/.config/fish/completions/xinity.fish
+```
+
+</CodeGroup>
+
+## Environment variables
+
+These variables configure CLI behavior without requiring explicit flags:
+
+| Variable | Description | Default |
+| --- | --- | --- |
+| `XINITY_DASHBOARD_URL` | Dashboard API endpoint | `http://localhost:5173` |
+| `XINITY_API_KEY` | API key for dashboard authentication | — |
+| `DB_CONNECTION_URL` | PostgreSQL connection URL (used by `doctor`) | — |
+
+## Remote operation
+
+All commands support `--target-host <user@host>` to manage a remote Linux server over SSH. The CLI establishes a persistent SSH connection and caches sudo credentials for the session, so you authenticate once regardless of how many elevated operations are needed.
+
+```bash
+xinity up all --target-host user@server
+xinity doctor --target-host user@server
+xinity configure gateway --target-host user@server
+```
+
+## Commands
+
+<CardGroup cols={2}>
+  <Card title="xinity up" icon="arrow-up" href="/cli/up">
+    Install or update Xinity services as systemd units. Supports individual components and infrastructure tools.
+  </Card>
+  <Card title="xinity act" icon="bolt" href="/cli/act">
+    Call any dashboard API route directly from the terminal, with route discovery and JSON input.
+  </Card>
+  <Card title="xinity doctor" icon="stethoscope" href="/cli/doctor">
+    Check system health: service states, database connectivity, and configuration.
+  </Card>
+  <Card title="xinity configure" icon="gear" href="/cli/configure">
+    Set CLI settings or interactively reconfigure an installed component's environment.
+  </Card>
+  <Card title="xinity update" icon="rotate" href="/cli/update">
+    Update the CLI binary itself to the latest available version.
+  </Card>
+</CardGroup>

@@ -1,0 +1,242 @@
+---
+title: "Deploy Xinity AI using Docker Compose on any server"
+description: "Bring up the full Xinity AI control plane with a single command. Includes PostgreSQL, Redis, and Caddy for automatic HTTPS certificates."
+---
+
+The Docker Compose deployment brings up the full Xinity AI control plane — gateway, dashboard, database, Redis, and a Caddy reverse proxy with automatic HTTPS — with a single command. It is the recommended approach for Docker hosts and cloud VMs.
+
+<Warning>
+  The daemon that runs on GPU machines is **not** included in this stack. Install it separately on each inference node using the Xinity CLI. See [Add GPU inference nodes](/deployment/inference-nodes).
+</Warning>
+
+## Prerequisites
+
+- Docker Engine 24.0 or later
+- Docker Compose 2.20 or later
+- A domain name pointing to your server (for automatic HTTPS)
+- Ports 80 and 443 available on the host
+
+## Included services
+
+| Service | Role |
+|---|---|
+| **PostgreSQL 17** | Primary database |
+| **Redis** | Caching and job queue |
+| **Gateway** | OpenAI-compatible API gateway |
+| **Dashboard** | Web UI for administration |
+| **Infoserver** | Custom model registry (optional — public registry used by default) |
+| **Caddy** | Reverse proxy with automatic Let's Encrypt HTTPS |
+
+By default, the dashboard fetches model information from the public registry at `https://sysinfo.xinity.ai`. You only need to run a local infoserver if you want to host a custom model registry.
+
+## Quick start
+
+<Steps>
+  <Step title="Copy and configure the environment file">
+    ```bash
+    cp .env.example .env
+    ```
+
+    Edit `.env` and set the required variables:
+
+    | Variable | Description |
+    |---|---|
+    | `DOMAIN` | Your domain, e.g. `example.com` |
+    | `ACME_EMAIL` | Email address for Let's Encrypt certificates |
+    | `POSTGRES_PASSWORD` | Secure password for PostgreSQL |
+    | `REDIS_PASSWORD` | Secure password for Redis |
+    | `BETTER_AUTH_SECRET` | Random secret — generate with `openssl rand -base64 32` |
+
+    <Warning>
+      Never commit `.env` to version control. Set its permissions to `chmod 600 .env`.
+    </Warning>
+  </Step>
+
+  <Step title="Start all services">
+    ```bash
+    docker compose up -d
+    ```
+
+    On first startup, the stack will:
+    1. Initialize the database and run migrations
+    2. Obtain SSL certificates from Let's Encrypt (may take 1–2 minutes)
+    3. Start all services behind the Caddy proxy
+
+    To follow the logs while services start:
+
+    ```bash
+    docker compose logs -f
+    ```
+  </Step>
+
+  <Step title="Access the dashboard">
+    Once running, services are available at:
+
+    - **Dashboard:** `https://dashboard.yourdomain.com`
+    - **API gateway:** `https://api.yourdomain.com`
+
+    Open the dashboard URL and complete the sign-up flow to create your admin account.
+  </Step>
+</Steps>
+
+## Local evaluation (no domain required)
+
+A compose overlay is included for trying Xinity on `localhost` without a domain or HTTPS:
+
+```bash
+cp .env.example .env
+# Set POSTGRES_PASSWORD, REDIS_PASSWORD, BETTER_AUTH_SECRET
+# DOMAIN and ACME_EMAIL can be any placeholder value — Caddy is disabled by the overlay
+```
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.local.yml up -d
+```
+
+Services are then available at:
+
+- **Dashboard:** `http://localhost:5121`
+- **Gateway API:** `http://localhost:4121`
+
+The overlay disables Caddy, exposes the gateway and dashboard ports directly, and rewrites `ORIGIN`, `BETTER_AUTH_URL`, and `GATEWAY_URL` for localhost.
+
+## Secrets management
+
+### Option A: `.env` file (simplest)
+
+Store all secrets in `.env` alongside the compose file and restrict its permissions:
+
+```bash
+chmod 600 .env
+```
+
+This is sufficient for single-server deployments. Note that secrets are visible as container environment variables via `docker inspect`.
+
+### Option B: Docker secrets with `_FILE` (recommended for production)
+
+Every Xinity service supports the `_FILE` convention: for any environment variable `VAR`, set `VAR_FILE` to a file path instead. The service reads the file at startup and uses its trimmed contents as the value. Direct environment variables take precedence over `_FILE` variants.
+
+1. Create the secret files:
+
+   ```bash
+   mkdir -p secrets
+   openssl rand -base64 32 > secrets/postgres_password
+   openssl rand -base64 32 > secrets/redis_password
+   openssl rand -base64 32 > secrets/better_auth_secret
+   chmod 600 secrets/*
+   ```
+
+2. Reference them in a compose override file:
+
+   ```yaml
+   # docker-compose.override.yml
+   services:
+     gateway:
+       environment:
+         DB_CONNECTION_URL_FILE: /run/secrets/db_connection_url
+       secrets:
+         - db_connection_url
+         - redis_url
+
+     dashboard:
+       environment:
+         DB_CONNECTION_URL_FILE: /run/secrets/db_connection_url
+         BETTER_AUTH_SECRET_FILE: /run/secrets/better_auth_secret
+       secrets:
+         - db_connection_url
+         - better_auth_secret
+
+   secrets:
+     db_connection_url:
+       file: ./secrets/db_connection_url
+     redis_url:
+       file: ./secrets/redis_url
+     better_auth_secret:
+       file: ./secrets/better_auth_secret
+   ```
+
+   With this approach, secrets are mounted as in-memory files at `/run/secrets/` inside each container and are never exposed as environment variables.
+
+To rotate a secret, update the file in `secrets/` and restart the affected services:
+
+```bash
+docker compose restart gateway dashboard
+```
+
+## Enable a custom infoserver
+
+By default, model information is fetched from the public registry. To host your own:
+
+1. Create your model definitions file:
+
+   ```bash
+   cp models.yaml.example models.yaml
+   # Edit models.yaml with your custom models
+   ```
+
+   You can include the public registry alongside your own:
+
+   ```yaml
+   includes:
+     - https://sysinfo.xinity.ai/models.yaml
+
+   models:
+     my-custom-model:
+       # ... your model configuration
+   ```
+
+2. Enable the infoserver in `.env`:
+
+   ```bash
+   INFOSERVER_PROFILE=infoserver
+   INFOSERVER_URL=http://infoserver:8090
+   ```
+
+3. Start with the infoserver profile:
+
+   ```bash
+   docker compose --profile infoserver up -d
+   ```
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Auth routes return 404 (sign-in, sign-up, etc.)">
+    The `@eslym/sveltekit-adapter-bun` adapter uses `HTTP_OVERRIDE_ORIGIN` instead of SvelteKit's `ORIGIN` to rewrite request URLs. Without it, Better Auth sees the internal Bun server origin (e.g. `http://0.0.0.0:5121`), which does not match the configured `ORIGIN`, so all `/api/auth/*` requests fall through and return 404.
+
+    **Fix:** set `HTTP_OVERRIDE_ORIGIN` to the same value as `ORIGIN` in your `.env`:
+
+    ```bash
+    ORIGIN=https://dashboard.example.com
+    HTTP_OVERRIDE_ORIGIN=https://dashboard.example.com
+    ```
+
+    This only affects production builds. In development, Vite serves on the same address as `ORIGIN` so they naturally match.
+  </Accordion>
+
+  <Accordion title="SSL certificate issues">
+    Caddy obtains certificates automatically via Let's Encrypt. If it fails:
+
+    1. Verify your domain DNS resolves to the server IP
+    2. Ensure ports 80 and 443 are publicly accessible
+    3. Check Caddy logs: `docker compose logs caddy`
+    4. If you have restarted too many times, Let's Encrypt rate limits may apply — wait before retrying
+  </Accordion>
+
+  <Accordion title="Services won't start">
+    1. Check logs: `docker compose logs`
+    2. Verify `.env` exists and contains all required variables
+    3. Ensure ports 80 and 443 are not already in use on the host
+    4. Check that your domain DNS resolves to the server
+  </Accordion>
+
+  <Accordion title="Database connection errors">
+    1. Wait for PostgreSQL to fully initialize — check `docker compose logs postgres`
+    2. Verify `DB_CONNECTION_URL` in `.env` is correct
+    3. If using an external database, ensure migrations have been run: `docker compose run --rm gateway bun run migrate`
+  </Accordion>
+</AccordionGroup>
+
+<Tip>
+  To add GPU inference nodes to your control plane, see [Add GPU inference nodes](/deployment/inference-nodes).
+</Tip>

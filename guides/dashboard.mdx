@@ -1,0 +1,75 @@
+---
+title: "Navigate the Xinity AI management dashboard"
+description: "Tour the Xinity dashboard: model hub, call logs, API key management, organizations, and the five-role RBAC system explained for admins and operators."
+---
+
+The Xinity dashboard is the central management surface for your on-premises AI instance. Administrators use it to deploy and monitor models, manage organization membership, create API keys, review recorded inference calls, configure enterprise SSO, and track usage metrics. Every action available in the UI is also available programmatically through the dashboard REST API at `/api/`.
+
+<Note>
+  The full OpenAPI schema for the dashboard REST API is at `https://your-dashboard/api/openapi.json`. The CLI uses this same API via `xinity act [route] [data]`.
+</Note>
+
+## Roles
+
+Five roles control what each member can do within an organization. Roles are assigned per-organization — the same user can be an admin in one org and a viewer in another.
+
+| Role | Description |
+|---|---|
+| **Owner** | Full access. Can manage all org settings and delete the organization. |
+| **Admin** | Can manage members, deployments, API keys, applications, and org settings. Cannot delete the organization. |
+| **Member** | Can create and manage their own API keys, view deployments, and view call logs scoped to their applications. |
+| **Labeler** | Read-only access to call logs, with the ability to add labels and feedback to recorded calls for fine-tuning and evaluation. |
+| **Viewer** | Read-only access to deployments, call logs, and usage metrics. Cannot create or modify any resource. |
+
+Instance admins (configured via `INSTANCE_ADMIN_EMAILS`) can access **Instance Settings**, which covers user management, SSO configuration, and organization management across the entire instance.
+
+## Getting started checklist
+
+When you first access a new Xinity instance, the dashboard home screen shows a **Getting Started** checklist. It walks you through the essential first steps: creating an organization, deploying your first model, and generating an API key. Complete these three steps and you are ready to make your first inference call. You can dismiss the checklist at any time.
+
+## Main sections
+
+<CardGroup cols={2}>
+  <Card title="Model Hub" icon="microchip" href="/guides/model-deployments">
+    Deploy and monitor LLMs. Each deployment shows its current lifecycle state — `scheduling`, `downloading`, `installing`, `ready`, or `failed` — and which inference nodes are serving it. Configure canary rollouts and enable or disable deployments from this view.
+  </Card>
+  <Card title="Data (call logs)" icon="database">
+    View every LLM call recorded by the gateway. Filter by model, application, date range, or label status. Labelers and above can annotate calls with feedback labels to build fine-tuning and evaluation datasets.
+  </Card>
+  <Card title="Organizations" icon="building" href="/guides/organizations">
+    Manage org membership and pending invitations. Owners and admins can invite members by email, assign roles, and remove members. Each organization provides full tenant isolation: API keys, call logs, and model visibility are all scoped to the org.
+  </Card>
+  <Card title="API Keys" icon="key" href="/guides/api-keys">
+    Create and manage gateway API keys. Keys are scoped to an organization and optionally grouped under a named application for usage tracking. The full key value is shown only once at creation — store it securely immediately.
+  </Card>
+  <Card title="Instance Settings" icon="sliders">
+    Instance-level administration accessible only to instance admins. Manage users, configure SSO (OIDC/SAML), and oversee all organizations across the instance.
+  </Card>
+  <Card title="Settings" icon="circle-user">
+    Personal account settings: display name, email, passkeys, two-factor authentication (TOTP), and notification preferences for deployment status changes and weekly usage reports.
+  </Card>
+</CardGroup>
+
+## Dashboard REST API
+
+Every operation available in the UI is also available as a REST call. The API is served at `/api/` on your dashboard host.
+
+```bash curl
+# List all deployments
+curl -H "x-api-key: sk_..." https://your-dashboard/api/deployment
+
+# List all organizations (instance admin only)
+curl -H "x-api-key: sk_..." https://your-dashboard/api/organization
+```
+
+The OpenAPI schema at `https://your-dashboard/api/openapi.json` documents all available routes and their parameters. You can also explore the schema interactively in your browser at `/api/`.
+
+The CLI wraps this API directly:
+
+```bash bash
+# Discover all available routes
+xinity act --list-routes
+
+# Call any route with JSON data
+xinity act deployment.list '{"withStatus": true}'
+```

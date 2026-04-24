@@ -1,0 +1,99 @@
+---
+title: "xinity up: install and update services"
+description: "xinity up installs Xinity services as systemd units. Components: gateway, dashboard, daemon, db, all. Infra tools: infra-ollama, infra-redis, infra-seaweedfs."
+---
+
+`xinity up` installs or updates a Xinity AI service component on the current machine (or a remote server via `--target-host`). It downloads the binary from GitHub Releases with SHA256 verification, prompts for environment configuration interactively, generates a hardened systemd unit, and starts the service.
+
+## Usage
+
+```bash
+xinity up <component> [flags]
+```
+
+## Components
+
+| Component | Description |
+| --- | --- |
+| `gateway` | API gateway that handles inbound requests and routes them to backend services |
+| `dashboard` | Admin web UI and oRPC API server |
+| `daemon` | Inference node agent; connects to the database and manages Ollama model deployments |
+| `db` | Runs PostgreSQL migrations and configures Redis service discovery |
+| `all` | Installs gateway, dashboard, and db together (control plane) |
+| `infra-ollama` | Installs or updates Ollama, configures network binding, writes daemon environment |
+| `infra-redis` | Detects or installs Redis or Valkey, configures it, and persists the connection URL |
+| `infra-seaweedfs` | Installs SeaweedFS as an S3-compatible object store |
+| `infra-postgres` | Installs and starts a standalone PostgreSQL instance (without migrations) |
+
+## Flags
+
+| Flag | Description |
+| --- | --- |
+| `--version <tag>` | Install a specific release tag instead of the latest |
+| `--target-host <user@host>` | Manage a remote Linux server over SSH |
+
+## Examples
+
+```bash
+xinity up all
+```
+
+```bash
+xinity up dashboard --version 0.6.0
+```
+
+```bash
+xinity up daemon --target-host user@gpu-server
+```
+
+```bash
+xinity up infra-ollama
+```
+
+## Install flow
+
+<Steps>
+  <Step title="Download binary">
+    The CLI fetches the release archive from GitHub Releases for the target platform (Linux x64 or arm64) and verifies its SHA256 checksum before proceeding.
+  </Step>
+  <Step title="Prompt for configuration">
+    Each service schema defines its required environment variables. The CLI prompts for config values and separately prompts for secrets (with masked input). Config is written to `/etc/xinity-ai/<component>.env` (mode `644`) and secrets to `/etc/xinity-ai/secrets/<KEY>` (mode `600`).
+  </Step>
+  <Step title="Generate systemd unit">
+    A systemd service unit is written with security hardening options enabled. Secrets are loaded via `LoadCredential=` so they never appear as plain environment variables in the process environment.
+  </Step>
+  <Step title="Start service">
+    The service is enabled and started. Use `xinity doctor` to verify it is running correctly.
+  </Step>
+</Steps>
+
+<Note>
+The daemon component requires Ollama to be installed and running on the same machine. Run `xinity up infra-ollama` first if you have not already installed it.
+</Note>
+
+## Deploying the control plane
+
+Run the following on the machine that will serve the API and dashboard:
+
+```bash
+xinity up all
+```
+
+To install components individually:
+
+```bash
+xinity up db
+xinity up gateway
+xinity up dashboard
+```
+
+## Deploying an inference node
+
+Run the following on each machine with GPU capacity:
+
+```bash
+xinity up infra-ollama
+xinity up daemon
+```
+
+The daemon connects to the shared database and receives deployment instructions from the dashboard.

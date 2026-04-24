@@ -1,0 +1,72 @@
+---
+title: "POST /v1/rerank: rerank documents by relevance"
+description: "Score and reorder a list of documents against a query using a deployed reranking model. Returns documents sorted by descending relevance score."
+---
+
+The `/v1/rerank` endpoint accepts a query and a list of documents and returns them scored by relevance. Use it as a second-stage retrieval step after vector search to improve precision in RAG pipelines.
+
+## Request
+
+```
+POST /v1/rerank
+Authorization: Bearer sk_...
+Content-Type: application/json
+```
+
+<ParamField body="model" type="string" required>
+  The `publicSpecifier` of a deployed reranking model. The model must have `type: rerank` in the model catalog.
+</ParamField>
+
+<ParamField body="query" type="string" required>
+  The search query to score documents against.
+</ParamField>
+
+<ParamField body="documents" type="array" required>
+  Array of document strings to rerank.
+</ParamField>
+
+## Example
+
+```bash
+curl https://your-instance/v1/rerank \
+  -H "Authorization: Bearer sk_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "bge-reranker",
+    "query": "contract renewal policy",
+    "documents": [
+      "The contract expires in 30 days.",
+      "Renewal is automatic unless cancelled.",
+      "The weather is sunny today."
+    ]
+  }'
+```
+
+## Response
+
+```json
+{
+  "results": [
+    {"index": 1, "relevance_score": 0.94},
+    {"index": 0, "relevance_score": 0.71},
+    {"index": 2, "relevance_score": 0.03}
+  ]
+}
+```
+
+<ResponseField name="results" type="array">
+  Documents ordered by descending relevance score.
+
+  <Expandable title="Result object">
+    <ResponseField name="index" type="integer">
+      Zero-based index of the document in the original `documents` array.
+    </ResponseField>
+    <ResponseField name="relevance_score" type="number">
+      Relevance score between 0 and 1. Higher is more relevant.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<Note>
+The model must be deployed with `type: rerank` in the model catalog. Sending an embedding or chat request to a reranking model will return an error.
+</Note>

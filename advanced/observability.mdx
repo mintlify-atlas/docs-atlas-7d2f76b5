@@ -1,0 +1,75 @@
+---
+title: "Monitor usage and call logs in Xinity AI"
+description: "Xinity logs every inference request with full input/output, token counts, and model metadata. Learn how to view, label, and export call data from the dashboard."
+---
+
+Every request that passes through the Xinity gateway is logged asynchronously after the response is delivered to the client, so logging adds no latency to inference requests. The logged data forms the foundation for usage monitoring, data labeling, fine-tuning, and audit trails — all stored entirely within your own infrastructure.
+
+## Viewing call logs
+
+Navigate to **Dashboard → Data** to browse all recorded inference requests. Each row displays:
+
+- Input messages and the full model response
+- Model specifier and organization
+- Request duration and token counts (prompt and completion)
+- Timestamp and associated API key / application
+
+The Data view supports filtering by model, organization, date range, and label status.
+
+## Labeling calls
+
+Every logged call can be labeled directly from the Data view. Mark a call as good or bad using the label controls, and optionally add free-text notes. Labels serve two purposes:
+
+1. **Quality signal** — Surface problematic model behavior for review.
+2. **Training data** — Labeled calls feed into the fine-tuning pipeline (see [Fine-tune and distill models](/advanced/fine-tuning)).
+
+<Tip>
+  The labeler role in Xinity is specifically designed for team members whose primary job is reviewing and labeling calls. Assign this role to human reviewers who do not need access to deployment management.
+</Tip>
+
+## Exporting call data
+
+Individual calls can be exported as fully self-contained JSON using the call export endpoint:
+
+```bash
+curl -H "x-api-key: sk_..." \
+  https://your-dashboard/api/call-export/<callId>
+```
+
+The export resolves all `xinity-media://sha256` references to inline data URIs before serializing, so the resulting JSON includes any images from multimodal requests without requiring access to SeaweedFS.
+
+## Usage metrics
+
+The dashboard home page shows an at-a-glance view of:
+
+- Call volumes over time
+- Active deployments and their status
+- Inference node count and online/offline status
+
+## Notification scheduler
+
+The dashboard runs a notification scheduler that polls every five minutes and fires alerts based on system state. Admins receive notifications for:
+
+| Event | Trigger |
+|-------|---------|
+| Deployment ready | A model deployment transitions to the `ready` state |
+| Deployment failed | A deployment fails to install or start |
+| Node online | An inference node comes online for the first time or reconnects |
+| Node offline | An inference node stops reporting to the database |
+| Capacity warning | Cluster VRAM usage exceeds 80% of total available capacity |
+| Weekly usage report | Sent Monday mornings with deployment counts, node counts, API call volumes, and top models by usage |
+
+## Multimodal image storage
+
+When SeaweedFS is configured, the gateway uploads image content from multimodal requests to the object store, keyed by the SHA-256 hash of the raw bytes. The database stores a compact `xinity-media://{sha256}` reference inside the `apiCall.inputMessages` JSONB column rather than the full base64-encoded image. This prevents significant database bloat on image-heavy workloads.
+
+The dashboard resolves these references in two ways:
+
+- **Display** — The `/api/media/[sha256]` endpoint generates a short-lived presigned URL (15 minutes) and returns a 302 redirect.
+- **Export** — The `/api/call-export/[callId]` endpoint resolves references to full data URIs before serializing, producing self-contained JSON.
+
+<Note>
+  If SeaweedFS is not configured, the gateway strips data URIs from call logs entirely. External image URLs are stored as-is. No images are embedded in the database in either case.
+</Note>
+
+

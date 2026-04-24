@@ -1,0 +1,83 @@
+---
+title: "Create and manage API keys in Xinity AI"
+description: "API keys authenticate requests to the Xinity gateway. Learn how to create keys, scope them to organizations, group them into applications, and revoke them."
+---
+
+API keys are the credentials your applications use to authenticate against the Xinity gateway. Every request to `/v1/*` must include a valid key in the `Authorization` header. Keys are tied to a specific organization — a key can only access models and call logs that belong to that org.
+
+## How authentication works
+
+The gateway authenticates requests using the standard bearer token pattern:
+
+```
+Authorization: Bearer sk_...
+```
+
+When a request arrives, the gateway extracts the first 25 characters of the key as a fast lookup specifier (cached in Redis for 1 hour). The full key is then verified against a bcrypt hash stored in the database. This two-step process avoids full table scans while keeping secrets out of plaintext storage.
+
+<Note>
+  The full key value is only ever shown once — at the moment of creation. There is no way to retrieve it again. Copy it immediately and store it in a secrets manager or environment variable.
+</Note>
+
+## Create an API key
+
+<Steps>
+  <Step title="Open API Keys">
+    In the dashboard sidebar, click **API Keys**.
+  </Step>
+  <Step title="Create a key">
+    Click **Create Key**. Give the key a descriptive name so you can identify it later (for example, `Production backend` or `Data pipeline`).
+  </Step>
+  <Step title="Choose an organization">
+    Select the organization this key should belong to. The key will only be able to access models and data within that org. You cannot change the organization after creation.
+  </Step>
+  <Step title="Optionally assign an application">
+    If you want to group this key under an application for usage tracking, select or create an application. See [Applications](#applications) below.
+  </Step>
+  <Step title="Copy the key">
+    After saving, the dashboard displays the full `sk_...` value. Copy it now — it will not be shown again.
+  </Step>
+</Steps>
+
+## Test a key
+
+Verify the key works before deploying it:
+
+```bash bash
+xinity act user.getSelf --api-key sk_...
+```
+
+A successful response returns the user record associated with the key's organization. A `401` means the key is invalid or was not found.
+
+You can also test directly against the gateway:
+
+```bash bash
+curl https://your-xinity-instance/v1/models \
+  -H "Authorization: Bearer sk_..."
+```
+
+## Applications
+
+Applications are named groupings for API keys. They let you track usage and call logs by product area or team — for example, `Customer support bot`, `Internal search`, or `Data extraction pipeline`.
+
+A single application can have multiple keys (for example, separate keys for staging and production). Usage and call logs in the dashboard can be filtered by application, making it easy to see which part of your infrastructure is responsible for a given volume of inference calls.
+
+To create an application, go to **API Keys** in the dashboard and click **Applications → Create Application**. You can then assign keys to it at creation time or by editing an existing key.
+
+## Key scope and cross-org restrictions
+
+Each key belongs to exactly one organization. It cannot access deployments, models, or call data in any other organization. If you operate multiple organizations (available on paid tiers), you will need a separate key for each.
+
+<Warning>
+  Never share API keys between organizations or embed organization-specific keys in shared infrastructure that serves multiple orgs. Use one key per org per application.
+</Warning>
+
+## Revoke a key
+
+To revoke a key, go to **Dashboard → API Keys**, find the key in the list, and click **Delete**. Revocation is immediate — the gateway's Redis auth cache TTL is 1 hour, but a deleted key will fail authentication on the next cache miss, which may be sooner.
+
+If you believe a key has been compromised, delete it and create a new one immediately. There is no way to rotate the value of an existing key.
+
+<Tip>
+  If you use the CLI for management operations, the CLI config stores a dashboard API key. You can verify which user a key resolves to with `xinity act user.getSelf --api-key sk_...` before committing it to your tooling.
+</Tip>

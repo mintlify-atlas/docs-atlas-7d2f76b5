@@ -1,97 +1,100 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Xinity AI: self-hosted AI platform for enterprises"
+description: "Xinity AI is a self-hosted AI platform with an OpenAI-compatible API, management dashboard, GPU orchestration, and enterprise auth — zero data egress."
 ---
 
-## Setting up
+Xinity AI is the open-source AI platform for enterprises that cannot send data to the cloud — not because of preference, but because of law, regulation, or trade secrets. Deploy models on your own infrastructure, keep full control of your data, and use your existing OpenAI SDK code unchanged.
 
-Get your documentation site up and running in minutes.
-
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
-
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
-  <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
-  >
-    Edit your docs locally and preview them in real time.
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Install the CLI and run your first model in under 10 minutes.
   </Card>
-  <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
-  >
-    Customize the design and colors of your site to match your brand.
+  <Card title="Architecture" icon="diagram-project" href="/architecture">
+    Understand how the gateway, dashboard, daemon, and infoserver fit together.
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
-  >
-    Organize your docs to help users find what they need and succeed with your product.
+  <Card title="Deployment guide" icon="server" href="/deployment/overview">
+    Choose between CLI, Docker Compose, or NixOS — and add inference nodes.
   </Card>
-  <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
-  >
-    Auto-generate API documentation from OpenAPI specifications.
+  <Card title="OpenAI-compatible API" icon="code" href="/guides/openai-api">
+    Point any OpenAI SDK or tool at your Xinity instance with no code changes.
   </Card>
-</Columns>
+</CardGroup>
 
-## Create beautiful pages
+## Why Xinity
 
-Everything you need to create world-class documentation.
+Cloud AI assumes your data can leave the building. For regulated enterprises — media companies, manufacturers, banks, public institutions — it can't. Xinity gives them a complete AI platform that runs entirely on their own hardware.
 
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
+<CardGroup cols={3}>
+  <Card title="Zero data egress" icon="shield-halved">
+    Nothing leaves your infrastructure. Not to a region, not to a cloud, not at all.
   </Card>
-  <Card
-    title="Code samples"
-    icon="code"
-    href="/essentials/code"
-  >
-    Add sample code to demonstrate how to use your product.
+  <Card title="OpenAI-compatible" icon="plug">
+    Drop-in replacement. Point your existing SDK at your instance and go.
   </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
+  <Card title="Full management UI" icon="gauge">
+    Dashboard with RBAC, SSO/SAML, usage tracking, and an audit trail.
   </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
+  <Card title="Multi-node GPU orchestration" icon="microchip">
+    Automatically schedules models across nodes with load balancing.
   </Card>
-</Columns>
+  <Card title="Enterprise auth" icon="lock">
+    SSO/SAML, 2FA/TOTP, passkeys, and multi-tenant organization isolation.
+  </Card>
+  <Card title="MCP server" icon="robot">
+    Let AI assistants manage your infrastructure via natural language.
+  </Card>
+</CardGroup>
 
-## Need inspiration?
+## Get started in minutes
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+<Steps>
+  <Step title="Install the Xinity CLI">
+    ```bash
+    curl -fsSL https://github.com/xinity-ai/xinity-ai/releases/latest/download/install.sh | bash
+    ```
+  </Step>
+  <Step title="Deploy the full stack">
+    ```bash
+    xinity up all
+    ```
+    This installs the gateway, dashboard, and database as systemd services on your server.
+  </Step>
+  <Step title="Create your admin account">
+    ```bash
+    xinity configure dashboardUrl http://localhost:3100
+    xinity act onboarding.cli
+    ```
+  </Step>
+  <Step title="Deploy a model and start calling the API">
+    ```bash
+    xinity act deployment.create '{"name": "Phi-3 Mini", "publicSpecifier": "phi-3-mini", "modelSpecifier": "phi3:mini", "enabled": true}'
+    curl http://localhost:3000/v1/chat/completions \
+      -H "Authorization: Bearer sk_..." \
+      -H "Content-Type: application/json" \
+      -d '{"model": "phi-3-mini", "messages": [{"role": "user", "content": "Hello from on-prem."}]}'
+    ```
+  </Step>
+</Steps>
+
+## Explore by topic
+
+<CardGroup cols={2}>
+  <Card title="Using the dashboard" icon="browser" href="/guides/dashboard">
+    Manage models, API keys, organizations, and review recorded LLM calls.
+  </Card>
+  <Card title="Model deployments" icon="cube" href="/guides/model-deployments">
+    Deploy, monitor, and canary-roll models across your GPU fleet.
+  </Card>
+  <Card title="API keys & applications" icon="key" href="/guides/api-keys">
+    Create scoped API keys and application groupings for your teams.
+  </Card>
+  <Card title="Custom model catalog" icon="book" href="/advanced/model-catalog">
+    Add private or fine-tuned models to your Xinity registry.
+  </Card>
+  <Card title="SSO & enterprise auth" icon="id-badge" href="/advanced/sso-auth">
+    Configure SAML/OIDC SSO, 2FA, and passkeys for your organization.
+  </Card>
+  <Card title="CLI reference" icon="terminal" href="/cli/overview">
+    Full reference for every xinity command and flag.
+  </Card>
+</CardGroup>

@@ -1,0 +1,65 @@
+---
+title: "GET /v1/models: list available models"
+description: "GET /v1/models returns all ready deployments for your org as an OpenAI-compatible list. Each model's id is the publicSpecifier used in inference requests."
+---
+
+The `/v1/models` endpoint returns all models currently available for inference on your Xinity instance. Only models in `ready` state that belong to your API key's organization are returned.
+
+## Request
+
+```
+GET /v1/models
+Authorization: Bearer sk_...
+```
+
+## Example
+
+```bash
+curl https://your-instance/v1/models \
+  -H "Authorization: Bearer sk_..."
+```
+
+## Response
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "phi-3-mini",
+      "object": "model",
+      "created": 1714000000,
+      "owned_by": "xinity"
+    },
+    {
+      "id": "nomic-embed",
+      "object": "model",
+      "created": 1714000100,
+      "owned_by": "xinity"
+    }
+  ]
+}
+```
+
+<ResponseField name="data" type="array">
+  List of available model objects.
+
+  <Expandable title="Model object">
+    <ResponseField name="id" type="string">
+      The model's `publicSpecifier` — use this as the `model` field in inference requests.
+    </ResponseField>
+    <ResponseField name="object" type="string">
+      Always `"model"`.
+    </ResponseField>
+    <ResponseField name="created" type="integer">
+      Unix timestamp when the deployment was created.
+    </ResponseField>
+    <ResponseField name="owned_by" type="string">
+      Always `"xinity"`.
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<Tip>
+Use the IDs returned here as the `model` field in `/v1/chat/completions`, `/v1/embeddings`, and other inference requests.
+</Tip>

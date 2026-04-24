@@ -1,0 +1,118 @@
+---
+title: "Deploy and manage LLMs in Xinity AI"
+description: "Learn how to deploy models from the Xinity model hub, monitor installation status, set up canary rollouts, and troubleshoot scheduling failures."
+---
+
+A deployment in Xinity is a desired-state record that tells the system which model should be available for inference and under what name. Once you create a deployment and enable it, the dashboard's sync service picks it up, plans which inference nodes should install the model, and writes installation records that the daemons on those nodes act on. The gateway then routes traffic to any node where the model is in the `ready` state.
+
+## publicSpecifier vs modelSpecifier
+
+Every deployment has two identifiers:
+
+- **`publicSpecifier`** — the name clients use in the `model` field of API requests (for example, `phi-3-mini`). This is what callers see.
+- **`modelSpecifier`** — the internal model string passed to the inference engine (for example, `phi3:mini` for Ollama). This is what the daemon uses to pull the model.
+
+Keeping these separate lets you expose stable public model names while upgrading the underlying model version without breaking existing integrations.
+
+## Deployment lifecycle
+
+After you enable a deployment, it moves through these states:
+
+| State | Meaning |
+|---|---|
+| `scheduling` | The sync service is planning which node(s) should install the model. |
+| `downloading` | The daemon is pulling the model weights from the inference engine's registry. |
+| `installing` | For vLLM deployments: the model process is starting up and warming up. |
+| `ready` | The model is available for inference. The gateway will route requests to this node. |
+| `failed` | Installation failed. Check the node logs and the dashboard for the error reason. |
+
+The gateway only routes traffic to nodes where the deployment is `ready`. All other states are excluded from load balancing.
+
+## Deploy a model via the dashboard
+
+<Steps>
+  <Step title="Open Model Hub">
+    In the dashboard sidebar, click **Model Hub**. The page lists models from the Xinity model catalog alongside any existing deployments.
+  </Step>
+  <Step title="Select a model">
+    Find the model you want to deploy. Click it to open the deployment configuration panel.
+  </Step>
+  <Step title="Configure the deployment">
+    Set the **Name** (display name), confirm or edit the **public specifier** (the name clients will use in API requests), and choose the inference engine. For advanced use cases, you can also configure a canary model and canary percentage here.
+  </Step>
+  <Step title="Enable the deployment">
+    Toggle **Enabled** and save. The sync service triggers immediately and begins scheduling the model on available nodes. Watch the status column update as the daemon downloads and installs the model.
+  </Step>
+</Steps>
+
+## Deploy a model via the CLI
+
+Use `xinity act` to call the deployment API directly from the terminal:
+
+```bash bash
+xinity act deployment.create '{
+  "name": "Phi-3 Mini",
+  "publicSpecifier": "phi-3-mini",
+  "modelSpecifier": "phi3:mini",
+  "enabled": true
+}'
+```
+
+## Monitor deployment status
+
+Poll the deployment list to watch lifecycle states:
+
+```bash bash
+xinity act deployment.list '{"withStatus": true}'
+```
+
+The response includes a `status` field for each deployment with the current state across all assigned nodes. A deployment is ready for inference once at least one node reports `ready`.
+
+You can also check health across the entire instance:
+
+```bash bash
+xinity doctor
+```
+
+## Canary deployments
+
+Xinity supports canary rollouts at the gateway level. You can direct a percentage of traffic to a new model version while the majority continues going to the current one.
+
+To configure a canary, set `canaryModel` and `canaryPercentage` on an existing deployment. The gateway probabilistically routes requests between the primary and canary model using time-interpolated progress — session affinity ensures a given API key consistently lands on the same variant.
+
+```bash bash
+xinity act deployment.update '{
+  "id": "your-deployment-id",
+  "canaryModel": "phi3:medium",
+  "canaryPercentage": 10
+}'
+```
+
+<Warning>
+  Canary traffic is distributed at the gateway level across all callers sharing the same API key. If you need per-application traffic splitting, use separate deployments with separate public specifiers and manage routing in your application layer.
+</Warning>
+
+## Models with custom code
+
+Models tagged `custom_code` in the model catalog require the `--trust-remote-code` flag in vLLM. The daemon detects this tag automatically and applies the flag when starting the model process. These models also go through an additional approval step in the dashboard before the sync service will schedule them — an instance admin must explicitly approve the deployment before the daemon begins pulling.
+
+<Note>
+  The `custom_code` tag is set in the Xinity model catalog (managed by the infoserver). Contact your instance admin if a model you want to deploy requires this flag.
+</Note>
+
+## Troubleshoot a failed deployment
+
+<AccordionGroup>
+  <Accordion title="Deployment stays in scheduling">
+    The sync service could not find an inference node with sufficient capacity. Check that at least one daemon is online and that the node's available VRAM meets the model's minimum requirements listed in the catalog.
+  </Accordion>
+  <Accordion title="Deployment stuck in downloading">
+    The daemon is pulling model weights. Large models can take significant time. Check the daemon logs on the inference node for progress or error messages. Verify the node has network access to the model registry.
+  </Accordion>
+  <Accordion title="Deployment shows failed">
+    Check the deployment detail page in the dashboard for the specific error. Common causes: insufficient disk space on the inference node, a model specifier that doesn't exist in the registry, or a vLLM startup timeout (the daemon waits up to 1 hour).
+  </Accordion>
+  <Accordion title="Model is ready but API returns model not found">
+    The gateway uses the `publicSpecifier` for routing. Verify the `model` field in your request exactly matches the `publicSpecifier` of the deployment, and that the API key belongs to the same organization as the deployment.
+  </Accordion>
+</AccordionGroup>

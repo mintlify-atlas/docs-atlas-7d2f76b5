@@ -1,122 +1,111 @@
 {
   "$schema": "https://mintlify.com/docs.json",
-  "theme": "mint",
-  "name": "Mint Starter Kit",
+  "name": "Xinity AI",
+  "theme": "luma",
   "colors": {
-    "primary": "#16A34A",
-    "light": "#07C983",
-    "dark": "#15803D"
+    "primary": "#bd39c7",
+    "light": "#eb5c8c",
+    "dark": "#bb4783"
   },
-  "favicon": "/favicon.svg",
+  "favicon": "https://media.brand.dev/33e70af8-4af7-481f-b82b-2660704a0aca.png",
+  "navbar": {
+    "primary": {
+      "type": "github",
+      "href": "https://github.com/xinity-ai/xinity-ai"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/xinity-ai/xinity-ai"
+    }
+  },
   "navigation": {
     "tabs": [
       {
-        "tab": "Guides",
+        "tab": "Documentation",
         "groups": [
           {
-            "group": "Getting started",
+            "group": "Get Started",
             "pages": [
-              "index",
+              "introduction",
               "quickstart",
-              "development"
+              "architecture"
             ]
           },
           {
-            "group": "Customization",
+            "group": "Deployment",
             "pages": [
-              "essentials/settings",
-              "essentials/navigation"
+              "deployment/overview",
+              "deployment/cli",
+              "deployment/docker",
+              "deployment/nixos",
+              "deployment/inference-nodes"
             ]
           },
           {
-            "group": "Writing content",
+            "group": "Using Xinity",
             "pages": [
-              "essentials/markdown",
-              "essentials/code",
-              "essentials/images",
-              "essentials/reusable-snippets"
+              "guides/openai-api",
+              "guides/dashboard",
+              "guides/model-deployments",
+              "guides/api-keys",
+              "guides/organizations",
+              "guides/mcp-server"
             ]
           },
           {
-            "group": "AI tools",
+            "group": "Advanced",
             "pages": [
-              "ai-tools/cursor",
-              "ai-tools/claude-code",
-              "ai-tools/windsurf"
+              "advanced/model-catalog",
+              "advanced/fine-tuning",
+              "advanced/sso-auth",
+              "advanced/secrets",
+              "advanced/observability"
             ]
           }
         ]
       },
       {
-        "tab": "API reference",
+        "tab": "CLI Reference",
         "groups": [
           {
-            "group": "API documentation",
+            "group": "Commands",
             "pages": [
-              "api-reference/introduction"
+              "cli/overview",
+              "cli/up",
+              "cli/act",
+              "cli/doctor",
+              "cli/configure",
+              "cli/update"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "OpenAI-Compatible API",
+            "pages": [
+              "api/overview",
+              "api/chat-completions",
+              "api/completions",
+              "api/embeddings",
+              "api/rerank",
+              "api/models"
             ]
           },
           {
-            "group": "Endpoint examples",
+            "group": "Management API",
             "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
+              "api/management-overview",
+              "api/deployments",
+              "api/organizations",
+              "api/api-keys"
             ]
           }
         ]
       }
-    ],
-    "global": {
-      "anchors": [
-        {
-          "anchor": "Documentation",
-          "href": "https://mintlify.com/docs",
-          "icon": "book-open-cover"
-        },
-        {
-          "anchor": "Blog",
-          "href": "https://mintlify.com/blog",
-          "icon": "newspaper"
-        }
-      ]
-    }
-  },
-  "logo": {
-    "light": "/logo/light.svg",
-    "dark": "/logo/dark.svg"
-  },
-  "navbar": {
-    "links": [
-      {
-        "label": "Support",
-        "href": "mailto:hi@mintlify.com"
-      }
-    ],
-    "primary": {
-      "type": "button",
-      "label": "Dashboard",
-      "href": "https://dashboard.mintlify.com"
-    }
-  },
-  "contextual": {
-    "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
-  },
-  "footer": {
-    "socials": {
-      "x": "https://x.com/mintlify",
-      "github": "https://github.com/mintlify",
-      "linkedin": "https://linkedin.com/company/mintlify"
-    }
+    ]
   }
 }

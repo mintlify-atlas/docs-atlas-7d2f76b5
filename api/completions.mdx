@@ -1,0 +1,51 @@
+---
+title: "POST /v1/completions: legacy text completions"
+description: "The legacy text completions endpoint accepts a prompt string and returns generated text. For new integrations, prefer /v1/chat/completions."
+---
+
+The `/v1/completions` endpoint provides legacy text completion support. It accepts a prompt string and returns a completion. For new integrations, use `/v1/chat/completions` instead, which is better supported across modern models.
+
+## Request
+
+```
+POST /v1/completions
+Authorization: Bearer sk_...
+Content-Type: application/json
+```
+
+<ParamField body="model" type="string" required>
+  The `publicSpecifier` of a deployed model.
+</ParamField>
+
+<ParamField body="prompt" type="string" required>
+  The input text prompt to complete.
+</ParamField>
+
+<ParamField body="max_tokens" type="integer">
+  Maximum number of tokens to generate.
+</ParamField>
+
+<ParamField body="temperature" type="number">
+  Sampling temperature between 0 and 2.
+</ParamField>
+
+<ParamField body="stream" type="boolean">
+  Stream the response as server-sent events.
+</ParamField>
+
+## Example
+
+```bash
+curl https://your-instance/v1/completions \
+  -H "Authorization: Bearer sk_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "phi-3-mini",
+    "prompt": "The capital of France is",
+    "max_tokens": 50
+  }'
+```
+
+<Tip>
+For conversational AI and most modern use cases, use [POST /v1/chat/completions](/api/chat-completions) which supports system prompts, multi-turn conversation, and tool calling.
+</Tip>

@@ -1,0 +1,81 @@
+---
+title: "What is Xinity AI: on-premises LLMs for enterprises"
+description: "Xinity AI is the open-source platform for running LLMs on your own infrastructure — with full orchestration, enterprise auth, and an OpenAI-compatible API."
+---
+
+Xinity AI is a self-hosted AI platform for enterprises that cannot send data to the cloud — not because of preference, but because of law, regulation, or trade secrets. It gives you model orchestration, an OpenAI-compatible API, a management dashboard, fine-tuning pipelines, and multi-node GPU scaling, all running entirely on your own hardware.
+
+## Why Xinity exists
+
+Cloud AI assumes your data can leave the building. For many enterprises it can't, not without violating GDPR, banking secrecy laws, journalistic source protection, attorney-client privilege, or trade secret law. These organizations aren't cloud-skeptical — they're **sovereignty-blocked**.
+
+Xinity solves this by bringing the full AI operations layer on-premises: nothing leaves your infrastructure, not to a region, not to a cloud, not at all.
+
+### The Utilization Inversion
+
+Cloud AI pricing is built around bursty, ~15% average utilization. Always-on AI agents and internal tooling run at 80–90%. At that utilization level, dedicated on-premises infrastructure delivers roughly **80% cost savings** compared to equivalent cloud capacity. Sovereignty isn't just a compliance requirement — it's an economic advantage. Xinity calls this phenomenon the **Utilization Inversion**.
+
+## How Xinity compares
+
+Ollama and vLLM are excellent inference engines — Xinity uses them under the hood. Xinity adds the full enterprise operations layer on top: orchestration, access control, observability, and governance.
+
+|  | **Xinity AI** | Ollama | LocalAI | vLLM |
+|---|---|---|---|---|
+| OpenAI-compatible API | ✅ | ✅ | ✅ | ✅ |
+| Multi-model orchestration | ✅ | ❌ | Partial | ❌ |
+| Multi-GPU orchestration | ✅ | ❌ | ❌ | ✅ |
+| Load balancing | ✅ | ❌ | ❌ | ❌ |
+| Web dashboard with RBAC | ✅ | ❌ | ❌ | ❌ |
+| Enterprise auth (SSO/SAML/2FA) | ✅ | ❌ | ❌ | ❌ |
+| Multi-org tenant isolation | ✅ | ❌ | ❌ | ❌ |
+| Usage tracking & data collection | ✅ | ❌ | ❌ | ❌ |
+| Fine-tuning / distillation pipeline | ✅ | ❌ | ❌ | ❌ |
+| MCP server (AI-managed infra) | ✅ | ❌ | ❌ | ❌ |
+| EU governance & audit trail | ✅ | ❌ | ❌ | ❌ |
+| Fully auditable source code | ✅ | ✅ | ✅ | ✅ |
+
+## Key features
+
+<CardGroup cols={2}>
+  <Card title="Zero data egress" icon="shield-halved">
+    Every request stays on your hardware. No telemetry, no routing through external services, no exceptions.
+  </Card>
+  <Card title="OpenAI-compatible API" icon="plug">
+    Point any OpenAI SDK or tool at your Xinity instance. No code changes required.
+  </Card>
+  <Card title="Management dashboard" icon="gauge">
+    SvelteKit-based admin UI with RBAC, SSO/SAML, usage tracking, data labeling, and a full audit trail.
+  </Card>
+  <Card title="Multi-node GPU orchestration" icon="microchip">
+    Automatically schedules models across GPU nodes using bin-packing, with load balancing and canary deployments.
+  </Card>
+  <Card title="Enterprise authentication" icon="lock">
+    SSO/SAML, OIDC, 2FA/TOTP, passkeys (WebAuthn), API keys, and multi-tenant organization isolation — built in.
+  </Card>
+  <Card title="MCP server" icon="robot">
+    Let AI assistants (Claude, Cursor, Windsurf) manage deployments and infrastructure via natural language.
+  </Card>
+  <Card title="Fine-tuning pipeline" icon="sliders">
+    Distillation and fine-tuning workflows that keep training data on your own infrastructure.
+  </Card>
+  <Card title="CLI operator tool" icon="terminal">
+    Install, configure, and manage the entire stack from the command line. Supports remote hosts over SSH.
+  </Card>
+</CardGroup>
+
+## Next steps
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Install the CLI and run your first model in under 10 minutes.
+  </Card>
+  <Card title="Architecture" icon="diagram-project" href="/architecture">
+    Understand how the gateway, dashboard, daemon, and infoserver fit together.
+  </Card>
+  <Card title="Deployment guide" icon="server" href="/deployment/overview">
+    Choose between CLI, Docker Compose, or NixOS — and add inference nodes.
+  </Card>
+  <Card title="OpenAI-compatible API" icon="code" href="/guides/openai-api">
+    Point any OpenAI SDK or tool at your Xinity instance with no code changes.
+  </Card>
+</CardGroup>

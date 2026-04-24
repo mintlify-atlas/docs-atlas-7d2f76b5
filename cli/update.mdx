@@ -1,0 +1,46 @@
+---
+title: "xinity update: update the CLI and components"
+description: "xinity update checks for and installs the latest version of the Xinity CLI. Use --check to inspect available updates without installing."
+---
+
+`xinity update` updates the `xinity` CLI binary itself to the latest release. Use `--check` to see whether an update is available before committing to the install.
+
+## Usage
+
+```bash
+xinity update [flags]
+```
+
+## Flags
+
+| Flag | Description |
+| --- | --- |
+| `--check` | Check for available updates without downloading or installing anything |
+
+## Examples
+
+Update the CLI to the latest version:
+
+```bash
+xinity update
+```
+
+Check whether an update is available without installing:
+
+```bash
+xinity update --check
+```
+
+## Updating individual components
+
+To update a deployed service component (gateway, dashboard, daemon, etc.), use `xinity up <component>` instead. It detects whether the installed version differs from the target and reconfigures the service if needed.
+
+```bash
+xinity up gateway
+xinity up dashboard --version 0.7.0
+xinity up daemon
+```
+
+<Tip>
+Run `xinity update --check` in a monitoring script or CI job to detect when a new CLI release is available without triggering an automatic install.
+</Tip>

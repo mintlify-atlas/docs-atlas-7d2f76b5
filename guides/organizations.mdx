@@ -1,0 +1,79 @@
+---
+title: "Manage organizations and access in Xinity AI"
+description: "Organizations isolate API keys, models, and call data in Xinity. Learn to create orgs, invite members, assign the five roles, and understand free-tier limits."
+---
+
+Organizations are the primary isolation boundary in Xinity. Each organization has its own API keys, call logs, and model visibility. Members of one organization cannot see or access resources belonging to another. This makes organizations suitable for separating teams, departments, business units, or customers on a shared Xinity instance.
+
+## What organizations isolate
+
+| Resource | Scoped to org |
+|---|---|
+| API keys | Yes — a key can only access its own org's resources |
+| Call logs | Yes — calls are recorded under the org that owns the key |
+| Model visibility | Yes — deployments are visible and accessible only within the org |
+| Member list | Yes — users are members of specific orgs with org-level roles |
+
+## Create an organization
+
+<Steps>
+  <Step title="Open Organizations">
+    In the dashboard sidebar, click **Organizations**.
+  </Step>
+  <Step title="Create">
+    Click **Create Organization**. Enter a name for the organization and confirm.
+  </Step>
+  <Step title="Configure">
+    After creation you are automatically the owner of the new org. From here you can invite members, create API keys scoped to this org, and deploy models.
+  </Step>
+</Steps>
+
+<Note>
+  The free tier limits you to one organization. To create additional organizations, upgrade to a paid tier. See the [licensing FAQ](https://github.com/xinity-ai/xinity-ai#licensing) for details.
+</Note>
+
+## Invite members
+
+<Steps>
+  <Step title="Open the organization">
+    Navigate to **Organizations** and click the org you want to manage.
+  </Step>
+  <Step title="Invite">
+    Click **Invite**. Enter the member's email address and select their role.
+  </Step>
+  <Step title="Confirm">
+    The invitee receives an email. Once they accept, they appear in the member list with the assigned role.
+  </Step>
+</Steps>
+
+## Roles
+
+Roles are assigned per-organization. The same user can hold different roles in different organizations.
+
+| Role | Capabilities |
+|---|---|
+| **Owner** | Full access to all org resources. Can manage org settings, billing, and delete the organization. Typically one per org. |
+| **Admin** | Can invite and remove members, manage deployments, create and delete API keys, and configure org settings. Cannot delete the organization. |
+| **Member** | Can create and manage their own API keys, view deployments, and view call logs scoped to their applications. |
+| **Labeler** | Read-only access to call logs, with the ability to add labels and feedback to recorded calls. Cannot manage deployments or keys. |
+| **Viewer** | Read-only access to deployments, call logs, and usage metrics. Cannot create or modify any resource. |
+
+To change a member's role, navigate to the organization page, find the member in the list, and select a new role from the dropdown. To remove a member, click **Remove** next to their name.
+
+## Free tier limits
+
+The Xinity dashboard free tier supports **one organization** and **one inference node**. This is enough to evaluate the platform or run smaller single-team deployments.
+
+Paid tiers unlock:
+
+- Multiple organizations (multi-tenant isolation for different teams or customers)
+- Multi-node orchestration (2, 6, 20+ inference nodes)
+- Additional enterprise features
+
+## SSO per organization
+
+Enterprise plans support per-organization SSO using OIDC or SAML. When SSO is configured for an organization, members can authenticate via your identity provider instead of (or in addition to) email and password. See [SSO authentication](/advanced/sso-auth) for setup instructions.
+
+<Tip>
+  Instance admins can manage SSO configuration and cross-org user management from **Instance Settings** in the dashboard — accessible to users listed in `INSTANCE_ADMIN_EMAILS`.
+</Tip>

@@ -1,0 +1,216 @@
+---
+title: "Customize the Xinity AI model catalog"
+description: "Write a models.yaml to add private or air-gapped models to Xinity. Covers every catalog field, registry includes composition, and infoserver self-hosting."
+---
+
+By default, every Xinity component fetches model metadata from the public registry at `https://sysinfo.xinity.ai`. That registry is maintained by Xinity and updated when new model definitions are added. You only need to self-host the infoserver if you want to add custom or private models, or if your environment has no outbound internet access.
+
+## When to self-host
+
+<CardGroup cols={2}>
+  <Card title="Public registry (default)" icon="globe">
+    No setup required. The public registry at `https://sysinfo.xinity.ai` serves model metadata for all standard Xinity deployments.
+  </Card>
+  <Card title="Self-hosted registry" icon="server">
+    Required when adding private or fine-tuned models, or when operating in an air-gapped environment with no internet access.
+  </Card>
+</CardGroup>
+
+## Writing a models.yaml
+
+Models are defined in YAML. Each top-level key under `models` is the model's **public specifier** — the identifier users see when creating deployments.
+
+### Minimal example
+
+```yaml
+models:
+  my-llama:
+    name: Llama 3.1 8B
+    description: General-purpose chat model
+    weight: 8
+    minKvCache: 2
+    url: https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct
+    providers:
+      vllm: "meta-llama/Llama-3.1-8B-Instruct"
+```
+
+### Full annotated example
+
+```yaml
+# yaml-language-server: $schema=https://sysinfo.xinity.ai/schemas/model.v1.json
+
+models:
+  my-vision-model:
+    name: Phi-3 Vision                        # Display name shown in the dashboard
+    description: |
+      Lightweight vision model
+      # Brief description of capabilities
+    weight: 8                                  # Model size in GB (VRAM consumed by weights)
+    minKvCache: 2                              # Minimum KV-cache allocation in GB
+    url: https://huggingface.co/microsoft/Phi-3-vision-128k-instruct
+    entryVersion: 0.5.4                        # Optional: Xinity version this model was introduced in
+    type: chat                                 # chat, embedding, or rerank
+    family: phi3                               # Model family for grouping in the UI
+    tags: [vision]                             # Capabilities: tools, vision, custom_code
+    isCustom: false                            # Set true for fine-tuned models
+
+    # Provider specifiers — at least one required.
+    providers:
+      vllm: "microsoft/Phi-3-vision-128k-instruct"   # HuggingFace model ID for vLLM
+      ollama: "phi3:vision"                           # Ollama model tag
+
+    # Per-driver tag overrides. Replaces model-level tags for that driver.
+    providerTags:
+      vllm: [custom_code, vision]
+
+    # Per-driver CLI arguments appended to the server command line.
+    # Certain args are blocked for security (--trust-remote-code, --host, etc.)
+    providerArgs:
+      vllm: ["--max-model-len", "4096"]
+
+    # Per-driver request parameter allowlist. Only listed params are forwarded.
+    requestParams:
+      vllm:
+        template.thinking: boolean
+
+    # Minimum driver version required (semver). Nodes with older versions are excluded.
+    providerMinVersions:
+      vllm: "0.19.1"
+
+    # GPU platform requirements. Nodes without a matching GPU vendor are excluded.
+    providerPlatforms:
+      vllm: [nvidia]
+```
+
+## Field reference
+
+<AccordionGroup>
+  <Accordion title="weight">
+    How much VRAM the model weights consume, in GB. For a 7B parameter model in FP16 this is roughly 14 GB. For quantized models it is smaller. The scheduler uses this value alongside `minKvCache` to determine whether a node has enough free VRAM.
+  </Accordion>
+  <Accordion title="minKvCache">
+    The minimum KV-cache allocation in GB. This determines how many concurrent requests the model can handle. Larger values allow more concurrency but consume more VRAM.
+  </Accordion>
+  <Accordion title="type">
+    Determines API compatibility. Accepted values are `chat`, `embedding`, and `rerank`. A `rerank` model only accepts rerank requests — sending a chat request to it fails. Defaults to `chat`.
+  </Accordion>
+  <Accordion title="tags">
+    Enables runtime capabilities. `tools` enables function/tool calling. `vision` enables image inputs — requests using a capability the model does not declare are rejected. `custom_code` marks models that ship with custom loading code vLLM must execute via `--trust-remote-code`. This tag triggers an explicit approval step in the dashboard before the model can be deployed. Only add it if the model fails to load without it.
+  </Accordion>
+  <Accordion title="providers">
+    Maps driver names to their model specifiers. For vLLM this is typically a HuggingFace model ID. For Ollama it is an Ollama model tag. At least one provider must be specified.
+  </Accordion>
+  <Accordion title="providerMinVersions">
+    Semver version strings per driver. A model requiring `vllm: "0.19.1"` will only be scheduled on nodes running vLLM 0.19.1 or later. Nodes that have not reported a version are not excluded.
+  </Accordion>
+  <Accordion title="providerPlatforms">
+    GPU vendor requirements per driver. A model with `vllm: [nvidia]` will only run on nodes with NVIDIA GPUs. Useful for models that depend on vendor-specific features such as AWQ quantization with CUDA-only kernels.
+  </Accordion>
+  <Accordion title="isCustom">
+    Set to `true` for fine-tuned or distilled models created through the Xinity training pipeline. This surfaces the model in the dashboard's custom model views.
+  </Accordion>
+</AccordionGroup>
+
+## IDE validation
+
+Add the following comment as the first line of your YAML file to get autocomplete and inline validation in editors that support the YAML Language Server (VS Code, JetBrains IDEs):
+
+```yaml
+# yaml-language-server: $schema=https://sysinfo.xinity.ai/schemas/model.v1.json
+```
+
+The schema is also available at the `/schemas/model.v1.json` endpoint on any running infoserver instance.
+
+## Composing registries with `includes`
+
+Your `models.yaml` can include other registries. This lets you extend the public catalog with your own models without maintaining a full copy of the standard list.
+
+```yaml
+includes:
+  - https://sysinfo.xinity.ai/models/v1.json
+
+models:
+  my-private-model:
+    name: Internal Fine-tuned LLM
+    weight: 14
+    minKvCache: 4
+    type: chat
+    isCustom: true
+    providers:
+      vllm: "your-org/your-finetuned-model"
+```
+
+Models from included sources are merged. Local models — from the main file or the `MODEL_INFO_DIR` directory — take precedence over remote includes with the same specifier. Recursive includes are supported with cycle detection.
+
+## Self-hosting the infoserver
+
+<Steps>
+  <Step title="Run the infoserver container">
+    Mount a directory of YAML files and expose port 8090:
+
+    ```bash
+    docker run -d \
+      -v /path/to/models.d:/data/models.d:ro \
+      -e MODEL_INFO_DIR=/data/models.d \
+      -e PORT=8090 \
+      -p 8090:8090 \
+      ghcr.io/xinity-ai/xinity-infoserver:latest
+    ```
+
+    <Note>
+      `MODEL_INFO_FILE` (single-file mode) is deprecated and will be removed in 1.0.0. Use `MODEL_INFO_DIR` and place your YAML files in a directory instead.
+    </Note>
+  </Step>
+  <Step title="Point each cluster component at your registry">
+    Set `INFOSERVER_URL` on the daemon, gateway, and dashboard:
+
+    | Component | Config file | Variable |
+    |-----------|-------------|----------|
+    | Daemon | `/etc/xinity-ai/daemon.env` | `INFOSERVER_URL` |
+    | Gateway | `/etc/xinity-ai/gateway.env` | `INFOSERVER_URL` |
+    | Dashboard | `/etc/xinity-ai/dashboard.env` | `INFOSERVER_URL` |
+
+    Or use the CLI:
+
+    ```bash
+    xinity configure daemon INFOSERVER_URL http://your-infoserver:8090
+    ```
+  </Step>
+  <Step title="Verify the registry is reachable">
+    ```bash
+    # Health check
+    curl http://localhost:8090/health
+
+    # List all models
+    curl http://localhost:8090/api/v1/models
+
+    # Fetch a specific model by specifier
+    curl http://localhost:8090/api/v1/models/my-private-model
+    ```
+  </Step>
+</Steps>
+
+## API endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Health check including model count, last refresh time, and last error |
+| `/version.json` | GET | Server version info |
+| `/api/v1/models` | GET | Paginated model list (query: `page`, `pageSize`, `type`, `family`, `tag`) |
+| `/api/v1/models/:specifier` | GET | Single model lookup by specifier |
+| `/api/v1/models/family/:family` | GET | All models in a family |
+| `/api/v1/models/resolve` | POST | Batch resolve up to 200 specifiers |
+| `/models/v1.yaml` | GET | Raw merged YAML |
+| `/models/v1.json` | GET | Raw merged JSON |
+| `/schemas/model.v1.json` | GET | JSON Schema for model file validation |
+
+## How scheduling uses model data
+
+When a deployment is created, the scheduler checks each cluster node against the model's requirements in order:
+
+1. **Driver** — Does the node have the required inference driver (vLLM or Ollama)?
+2. **Driver version** — Does the driver version satisfy `providerMinVersions`?
+3. **GPU platform** — Does at least one of the node's GPUs match `providerPlatforms`?
+4. **Capacity** — Does the node have enough free VRAM for `weight` plus KV-cache?
+
+All four checks must pass on a single node. If no node qualifies, the deployment remains in "scheduling" state and the dashboard shows the reason it cannot be placed.

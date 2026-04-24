@@ -1,0 +1,84 @@
+---
+title: "xinity configure: settings and service reconfiguration"
+description: "xinity configure sets CLI settings like dashboardUrl, or re-prompts environment variables for an installed component and restarts the service automatically."
+---
+
+`xinity configure` has two modes: setting a CLI-level configuration value (like the dashboard URL), or interactively reconfiguring an installed service component's environment variables and restarting it.
+
+## Usage
+
+Set a CLI-level key:
+
+```bash
+xinity configure <key> <value>
+```
+
+Reconfigure an installed component:
+
+```bash
+xinity configure <component>
+```
+
+## CLI settings
+
+| Key | Description |
+| --- | --- |
+| `dashboardUrl` | URL of the dashboard API used by `xinity act` and shell completion |
+
+Set the dashboard URL so `xinity act` knows where to connect:
+
+```bash
+xinity configure dashboardUrl http://localhost:3100
+```
+
+## Reconfiguring a component
+
+Passing a component name instead of a key-value pair re-runs the interactive configuration prompts for that component. The CLI re-prompts for all config values and secrets, writes the updated files, and restarts the service to apply the changes.
+
+Supported components: `gateway`, `dashboard`, `daemon`
+
+```bash
+xinity configure gateway
+```
+
+```bash
+xinity configure dashboard
+```
+
+```bash
+xinity configure daemon
+```
+
+<Note>
+The service is automatically restarted after configuration is saved. You do not need to run `systemctl restart` manually.
+</Note>
+
+## Flags
+
+| Flag | Description |
+| --- | --- |
+| `--target-host <user@host>` | Reconfigure a component on a remote Linux server over SSH |
+
+## Remote example
+
+```bash
+xinity configure dashboard --target-host user@server
+```
+
+## Rotating a secret manually
+
+If you need to update a single secret value without going through the full interactive flow:
+
+1. Write the new value directly to the secrets file:
+
+```bash
+printf '%s' 'new-value' | sudo tee /etc/xinity-ai/secrets/KEY > /dev/null
+```
+
+2. Restart the service:
+
+```bash
+sudo systemctl restart xinity-ai-<component>
+```
+
+Or run `xinity configure <component>` to use the interactive prompts instead.

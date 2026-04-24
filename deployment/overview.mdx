@@ -1,0 +1,60 @@
+---
+title: "Deploy Xinity AI: overview of all deployment methods"
+description: "Xinity AI offers three control plane deployment methods: CLI, Docker Compose, and NixOS. The inference daemon always runs separately on each GPU machine."
+---
+
+Xinity AI separates deployment into two distinct roles: a **control plane** that handles API requests and the admin UI, and one or more **inference nodes** that run the models. You choose how to deploy the control plane; the daemon on each GPU machine is always installed using the Xinity CLI regardless of that choice.
+
+## Deployment roles
+
+**Control plane** — runs the gateway, dashboard, database, and Redis. Serves the OpenAI-compatible API and the admin dashboard. Deploy this on a server (or cluster) that does not need GPU capacity.
+
+**Inference nodes** — each GPU machine runs the Xinity daemon alongside Ollama or vLLM. The daemon connects to the shared PostgreSQL database, reads model deployment instructions, and reports back status. See [Adding inference nodes](/deployment/inference-nodes) for the setup steps.
+
+## Choose a deployment method
+
+<CardGroup cols={3}>
+  <Card title="CLI (systemd)" icon="terminal" href="/deployment/cli">
+    Install and manage Xinity services as systemd units on any Linux server. Interactive configuration, remote management via SSH, and built-in secrets handling.
+  </Card>
+  <Card title="Docker Compose" icon="docker" href="/deployment/docker">
+    Bring up the full stack with a single command. Includes Caddy for automatic HTTPS. Best for Docker hosts and cloud VMs.
+  </Card>
+  <Card title="NixOS" icon="snowflake" href="/deployment/nixos">
+    Declarative flake modules for the control plane and inference nodes. Integrates with agenix and sops-nix for secrets.
+  </Card>
+</CardGroup>
+
+## Decision guide
+
+| Scenario | Recommended method |
+|---|---|
+| Quick local evaluation, no domain | [Docker Compose local overlay](/deployment/docker#local-evaluation-no-domain-required) |
+| Production with a domain + HTTPS | [Docker Compose](/deployment/docker) or [NixOS](/deployment/nixos) |
+| NixOS infrastructure | [NixOS flake modules](/deployment/nixos) |
+| Bare metal Linux with systemd | [Xinity CLI](/deployment/cli) |
+| Managed Postgres/Redis already available | Any method — point services at your existing database |
+
+## The daemon is always separate
+
+Regardless of how you deploy the control plane, the daemon that runs on each GPU machine is installed using the Xinity CLI. The daemon needs direct network access to PostgreSQL to read desired state and write status.
+
+A common production pattern is Docker Compose for the control plane and the CLI for inference nodes:
+
+- Deploy the control plane: `docker compose up -d`
+- On each GPU machine, install the CLI and run `xinity up daemon`
+- Expose PostgreSQL from the control plane host (`ports: ["5432:5432"]`) or use Docker host networking so the daemon can reach it
+
+NixOS control planes work the same way — the daemon only needs the database URL.
+
+For full instructions on adding GPU nodes to a running control plane, see [Add GPU inference nodes](/deployment/inference-nodes).
+
+## Secrets across all methods
+
+All three deployment targets support the `_FILE` convention: for any environment variable `KEY`, you can set `KEY_FILE` to a file path instead. The service reads the file at startup and uses its trimmed contents as the value. Direct environment variables take precedence over `_FILE` variants.
+
+| Method | Secrets approach |
+|---|---|
+| CLI | systemd `LoadCredential` — mode-600 files under `/etc/xinity-ai/secrets/` |
+| Docker Compose | Docker `secrets:` block mounted at `/run/secrets/` inside each container |
+| NixOS | Per-secret `*File` options or a single `environmentFile` path |

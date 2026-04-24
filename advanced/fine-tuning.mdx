@@ -1,0 +1,78 @@
+---
+title: "Fine-tune and distill models with Xinity AI"
+description: "Use Xinity's fine-tuning pipeline to create custom models from labeled call data. Label inference logs, launch training runs, and deploy the resulting model."
+---
+
+Xinity AI includes a fine-tuning and distillation pipeline that lets you create custom models directly from the inference data your cluster has already recorded. Because every gateway request is logged to the `apiCall` table, your cluster continuously accumulates a labeled dataset that can be used to train domain-specific models without sending data outside your infrastructure.
+
+<Note>
+  The fine-tuning pipeline is in active development. The workflow described here reflects the current dashboard implementation. Refer to the Training section of your dashboard for the most up-to-date capabilities and options.
+</Note>
+
+## Overview
+
+<CardGroup cols={3}>
+  <Card title="Label" icon="tag">
+    Mark recorded calls as good or bad in the Data section of the dashboard to build a training dataset.
+  </Card>
+  <Card title="Train" icon="brain">
+    Create a training run in the Training section, selecting the labeled calls and base model to fine-tune from.
+  </Card>
+  <Card title="Deploy" icon="rocket">
+    Add the resulting model to your catalog with `isCustom: true` and create a deployment.
+  </Card>
+</CardGroup>
+
+## Workflow
+
+<Steps>
+  <Step title="Label calls in the Data section">
+    Navigate to **Dashboard → Data** to browse all recorded inference requests. Each row shows the input messages, model response, model identifier, organization, duration, and token counts.
+
+    Mark individual calls as good or bad using the label controls. You can also add free-text notes to calls for context. These labels become the training signal for your fine-tuning run.
+  </Step>
+  <Step title="Create a training run">
+    Navigate to **Dashboard → Training** and create a new training run. Select the labeled calls you want to include and the base model to fine-tune from.
+
+    The training pipeline uses the labeled call data to create a custom model adapted to your organization's use cases and domain vocabulary.
+  </Step>
+  <Step title="Deploy the trained model">
+    Once the training run completes, register the resulting model in your model catalog by adding an entry with `isCustom: true`:
+
+    ```yaml
+    models:
+      my-finetuned-model:
+        name: Domain Fine-tune v1
+        description: Fine-tuned on internal support call data
+        weight: 8
+        minKvCache: 2
+        type: chat
+        isCustom: true
+        providers:
+          vllm: "your-org/your-finetuned-model"
+    ```
+
+    Then create a deployment from the dashboard or CLI as you would for any standard model.
+  </Step>
+</Steps>
+
+## Data collection
+
+The gateway logs every inference request asynchronously to the `apiCall` table. Each log entry captures:
+
+- Input messages and the model response
+- Model specifier and organization
+- Request duration and token counts
+- Multimodal image references (stored as `xinity-media://sha256` references when SeaweedFS is configured)
+
+This means your cluster is continuously building a training dataset as it handles production traffic. The longer your cluster runs and the more calls you label, the richer the dataset available for fine-tuning.
+
+<Tip>
+  Use the labeling workflow consistently from the start of your deployment. A well-labeled dataset of domain-specific calls produces better fine-tuned models than a large unlabeled one.
+</Tip>
+
+## Exporting training data
+
+Individual calls can be exported as self-contained JSON using the `/api/call-export/[callId]` endpoint. The export resolves all `xinity-media://` references to data URIs, producing a fully portable record that includes any images from multimodal requests.
+
+This format is compatible with standard fine-tuning data pipelines if you want to preprocess or filter data outside the dashboard before starting a training run.

@@ -1,0 +1,105 @@
+---
+title: "Connect AI assistants to Xinity via MCP"
+description: "Connect Claude, Cursor, or Windsurf to Xinity's MCP endpoint to manage deployments and keys via natural language. Config examples and security notes included."
+---
+
+Xinity's dashboard exposes a [Model Context Protocol](https://modelcontextprotocol.io) endpoint at `/mcp`. AI assistants that support MCP — including Claude Desktop, Cursor, and Windsurf — can use this endpoint to manage your Xinity infrastructure through natural language: deploying models, listing API keys, checking deployment status, and more.
+
+The MCP server dynamically generates its tool list from the dashboard's oRPC procedures at startup. Any procedure not explicitly excluded is automatically available as an MCP tool, so the tool list stays in sync with the dashboard API without manual maintenance.
+
+## Connect your AI assistant
+
+You will need a dashboard API key with the appropriate permissions. The same `sk_...` keys used for the REST API work here. Create one in **Settings → API Keys** before configuring your client.
+
+<Tabs>
+  <Tab title="Claude Desktop">
+    Add the following to your Claude Desktop configuration file (`claude_desktop_config.json`):
+
+    ```json json
+    {
+      "mcpServers": {
+        "xinity-ai": {
+          "url": "https://your-dashboard/mcp",
+          "headers": {
+            "Authorization": "Bearer sk_..."
+          }
+        }
+      }
+    }
+    ```
+
+    Restart Claude Desktop after saving. The Xinity tools will appear in the tool selector.
+  </Tab>
+  <Tab title="Cursor">
+    Add the MCP server in Cursor's settings under **MCP Servers**:
+
+    ```json json
+    {
+      "mcpServers": {
+        "xinity-ai": {
+          "url": "https://your-dashboard/mcp",
+          "headers": {
+            "Authorization": "Bearer sk_..."
+          }
+        }
+      }
+    }
+    ```
+
+    Cursor will discover available tools automatically on the next session start.
+  </Tab>
+  <Tab title="Windsurf">
+    Add the server to your Windsurf MCP configuration:
+
+    ```json json
+    {
+      "mcpServers": {
+        "xinity-ai": {
+          "url": "https://your-dashboard/mcp",
+          "headers": {
+            "Authorization": "Bearer sk_..."
+          }
+        }
+      }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Example prompts
+
+Once connected, you can manage your Xinity instance through natural language. Some examples:
+
+- "Deploy phi-3-mini to the production instance."
+- "List all active API keys in the engineering organization."
+- "Which models are currently in the ready state?"
+- "Create a new application called 'Customer support bot'."
+- "How many inference nodes are online right now?"
+- "Show me the call volume for the last 7 days."
+
+The assistant translates these into the appropriate dashboard API calls and returns structured results.
+
+## Security exclusions
+
+Not every dashboard operation is exposed as an MCP tool. The following categories are deliberately excluded to prevent AI assistants from making changes with significant security or compliance implications:
+
+- Credential management (rotating secrets, changing `BETTER_AUTH_SECRET`)
+- SSO configuration (OIDC/SAML provider setup)
+- Organization deletion
+- Instance-level admin operations
+
+All other management operations — deployments, API keys, applications, organizations, users, call logs, and labels — are available.
+
+<Warning>
+  The MCP endpoint uses the same authentication as the REST API. Use a key scoped to an organization with appropriate permissions. Avoid using an instance-admin key for MCP connections unless necessary.
+</Warning>
+
+## Disable the MCP endpoint
+
+If you do not want to expose the MCP endpoint, set the following environment variable in your dashboard configuration:
+
+```bash bash
+MCP_ENABLED=false
+```
+
+When disabled, requests to `/mcp` return `404`. The rest of the dashboard and API are unaffected.

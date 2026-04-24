@@ -1,0 +1,230 @@
+---
+title: "Use the OpenAI-compatible API with Xinity"
+description: "Point any OpenAI SDK at your Xinity instance to run on-premises inference. Learn how to authenticate, choose models, and use streaming, tools, and vision."
+---
+
+Xinity's gateway exposes an OpenAI-compatible API surface, which means any application or SDK already talking to OpenAI can point at your Xinity instance with a single base URL change. No data leaves your infrastructure. Requests are authenticated, routed to the correct inference node, and logged — all on-premises.
+
+## Base URL
+
+Point your SDK or HTTP client at your Xinity gateway:
+
+```
+https://your-xinity-instance/v1
+```
+
+For local development the default gateway port is `3000`, so the base URL is `http://localhost:3000/v1`.
+
+## Authentication
+
+All requests require an `Authorization` header with a bearer token:
+
+```
+Authorization: Bearer sk_...
+```
+
+API keys are created in the dashboard under **Settings → API Keys**. Each key is scoped to a specific organization and shown only once at creation time — copy it before closing the dialog. See [API keys](/guides/api-keys) for details on creating and scoping keys.
+
+## Chat completions
+
+The `model` field must match the `publicSpecifier` you set when creating the deployment — for example, `phi-3-mini` or `qwen3.5`. Run `GET /v1/models` to list the models currently available to your key.
+
+<CodeGroup>
+
+```bash curl
+curl https://your-xinity-instance/v1/chat/completions \
+  -H "Authorization: Bearer sk_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "phi-3-mini",
+    "messages": [
+      {"role": "system", "content": "You are a helpful assistant."},
+      {"role": "user", "content": "Summarize this contract."}
+    ]
+  }'
+```
+
+```python Python (openai)
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://your-xinity-instance/v1",
+    api_key="sk_..."
+)
+
+response = client.chat.completions.create(
+    model="phi-3-mini",
+    messages=[
+        {"role": "system", "content": "You are a helpful assistant."},
+        {"role": "user", "content": "Summarize this contract."},
+    ]
+)
+print(response.choices[0].message.content)
+```
+
+```typescript Node.js (openai)
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  baseURL: "https://your-xinity-instance/v1",
+  apiKey: "sk_...",
+});
+
+const response = await client.chat.completions.create({
+  model: "phi-3-mini",
+  messages: [
+    { role: "system", content: "You are a helpful assistant." },
+    { role: "user", content: "Summarize this contract." },
+  ],
+});
+console.log(response.choices[0].message.content);
+```
+
+</CodeGroup>
+
+## Streaming
+
+Set `stream: true` to receive server-sent events as the model generates tokens. The response format follows the OpenAI streaming spec exactly.
+
+<CodeGroup>
+
+```bash curl
+curl https://your-xinity-instance/v1/chat/completions \
+  -H "Authorization: Bearer sk_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "phi-3-mini",
+    "stream": true,
+    "messages": [{"role": "user", "content": "List ten GDPR principles."}]
+  }'
+```
+
+```python Python (openai)
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://your-xinity-instance/v1",
+    api_key="sk_..."
+)
+
+stream = client.chat.completions.create(
+    model="phi-3-mini",
+    stream=True,
+    messages=[{"role": "user", "content": "List ten GDPR principles."}]
+)
+
+for chunk in stream:
+    print(chunk.choices[0].delta.content or "", end="", flush=True)
+```
+
+```typescript Node.js (openai)
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  baseURL: "https://your-xinity-instance/v1",
+  apiKey: "sk_...",
+});
+
+const stream = await client.chat.completions.create({
+  model: "phi-3-mini",
+  stream: true,
+  messages: [{ role: "user", content: "List ten GDPR principles." }],
+});
+
+for await (const chunk of stream) {
+  process.stdout.write(chunk.choices[0]?.delta?.content ?? "");
+}
+```
+
+</CodeGroup>
+
+## Tool calling
+
+Pass a `tools` array to enable function calling. Models that support tool use are tagged `tools` in the model catalog — check the **Model Hub** in the dashboard to confirm your deployed model supports it.
+
+```python Python (openai)
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://your-xinity-instance/v1",
+    api_key="sk_..."
+)
+
+tools = [
+    {
+        "type": "function",
+        "function": {
+            "name": "get_invoice_status",
+            "description": "Get the current status of an invoice.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "invoice_id": {"type": "string"},
+                },
+                "required": ["invoice_id"],
+            },
+        },
+    }
+]
+
+response = client.chat.completions.create(
+    model="phi-3-mini",
+    messages=[{"role": "user", "content": "What is the status of invoice INV-2024-001?"}],
+    tools=tools,
+    tool_choice="auto",
+)
+print(response.choices[0].message.tool_calls)
+```
+
+<Note>
+  Tool calling is only supported for models with the `tools` tag in the model catalog. Sending a `tools` array to a non-tool model returns a `400` error.
+</Note>
+
+## Vision (image inputs)
+
+Models tagged `vision` accept image inputs via the standard `image_url` content part. Pass a base64 data URI or an external URL — the gateway fetches and resolves external URLs to data URIs before forwarding, so image bytes never leave your infrastructure.
+
+```python Python (openai)
+import base64
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://your-xinity-instance/v1",
+    api_key="sk_..."
+)
+
+with open("invoice.png", "rb") as f:
+    image_data = base64.b64encode(f.read()).decode("utf-8")
+
+response = client.chat.completions.create(
+    model="your-vision-model",
+    messages=[
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": "Extract the total amount from this invoice."},
+                {
+                    "type": "image_url",
+                    "image_url": {"url": f"data:image/png;base64,{image_data}"},
+                },
+            ],
+        }
+    ],
+)
+print(response.choices[0].message.content)
+```
+
+## Available endpoints
+
+| Endpoint | Method | Description |
+|---|---|---|
+| `/v1/chat/completions` | `POST` | Chat completions (streaming and non-streaming) |
+| `/v1/completions` | `POST` | Legacy text completions |
+| `/v1/embeddings` | `POST` | Embedding generation |
+| `/v1/rerank` | `POST` | Reranking |
+| `/v1/models` | `GET` | List available models |
+| `/v1/responses` | `POST` | Responses API with persistent store |
+
+<Tip>
+  For full request and response parameter documentation, see the [chat completions API reference](/api/chat-completions).
+</Tip>

@@ -1,0 +1,86 @@
+---
+title: "Management API: organizations"
+description: "Create and manage organizations via the Xinity API. Organizations isolate API keys, call logs, and model access between teams, projects, or tenants."
+---
+
+Organizations in Xinity are the primary tenant boundary. API keys, call logs, and model visibility are all scoped to an organization. The management API lets you create organizations and manage membership programmatically.
+
+## List organizations
+
+```bash
+GET /api/organization
+x-api-key: sk_...
+```
+
+```bash
+curl https://your-dashboard/api/organization \
+  -H "x-api-key: sk_..."
+```
+
+Or via CLI:
+
+```bash
+xinity act organization.list
+```
+
+## Create an organization
+
+```bash
+POST /api/organization
+x-api-key: sk_...
+Content-Type: application/json
+```
+
+<ParamField body="name" type="string" required>
+  Display name for the organization.
+</ParamField>
+
+```bash
+curl -X POST https://your-dashboard/api/organization \
+  -H "x-api-key: sk_..." \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Legal Team"}'
+```
+
+<Note>
+The free tier supports one organization. Paid tiers unlock multi-organization deployments.
+</Note>
+
+## Invite a member
+
+```bash
+POST /api/organization/:id/invite
+x-api-key: sk_...
+Content-Type: application/json
+```
+
+<ParamField body="email" type="string" required>
+  Email address of the person to invite.
+</ParamField>
+
+<ParamField body="role" type="string" required>
+  One of: `owner`, `admin`, `member`, `labeler`, `viewer`.
+</ParamField>
+
+```bash
+curl -X POST https://your-dashboard/api/organization/org_123/invite \
+  -H "x-api-key: sk_..." \
+  -H "Content-Type: application/json" \
+  -d '{"email": "alice@example.com", "role": "member"}'
+```
+
+## Roles
+
+| Role | Can do |
+|------|--------|
+| `owner` | Full control, including deleting the org |
+| `admin` | Manage members, deployments, API keys |
+| `member` | Use the API, view call logs |
+| `labeler` | Label call data only |
+| `viewer` | Read-only access |
+
+Or via CLI:
+
+```bash
+xinity act organization.invite '{"organizationId": "org_123", "email": "alice@example.com", "role": "member"}'
+```

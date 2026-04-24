@@ -1,0 +1,102 @@
+---
+title: "Management API: model deployments"
+description: "Create, list, update, and delete model deployments via the Xinity REST API. Set publicSpecifier, modelSpecifier, enabled state, and canary rollout percentage."
+---
+
+Model deployments define which models are available through the Xinity gateway. Creating a deployment triggers the scheduler to place the model on available inference nodes. The management API lets you automate this lifecycle programmatically.
+
+## List deployments
+
+```bash
+GET /api/deployment
+x-api-key: sk_...
+```
+
+Add `?withStatus=true` to include live installation status per node:
+
+```bash
+curl "https://your-dashboard/api/deployment?withStatus=true" \
+  -H "x-api-key: sk_..."
+```
+
+Or via CLI:
+
+```bash
+xinity act deployment.list '{"withStatus": true}'
+```
+
+## Create a deployment
+
+```bash
+POST /api/deployment
+x-api-key: sk_...
+Content-Type: application/json
+```
+
+<ParamField body="name" type="string" required>
+  Human-readable display name shown in the dashboard (e.g. `"Phi-3 Mini"`).
+</ParamField>
+
+<ParamField body="publicSpecifier" type="string" required>
+  The model ID callers use in API requests (e.g. `"phi-3-mini"`). This becomes the `model` field in `/v1/chat/completions`.
+</ParamField>
+
+<ParamField body="modelSpecifier" type="string" required>
+  The driver-specific model identifier used to pull the model (e.g. `"phi3:mini"` for Ollama, `"microsoft/Phi-3-mini-4k-instruct"` for vLLM).
+</ParamField>
+
+<ParamField body="enabled" type="boolean" required>
+  Set to `true` to immediately schedule the model on available nodes.
+</ParamField>
+
+```bash
+curl -X POST https://your-dashboard/api/deployment \
+  -H "x-api-key: sk_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Phi-3 Mini",
+    "publicSpecifier": "phi-3-mini",
+    "modelSpecifier": "phi3:mini",
+    "enabled": true
+  }'
+```
+
+Or via CLI:
+
+```bash
+xinity act deployment.create '{"name": "Phi-3 Mini", "publicSpecifier": "phi-3-mini", "modelSpecifier": "phi3:mini", "enabled": true}'
+```
+
+## Update a deployment
+
+```bash
+PATCH /api/deployment/:id
+x-api-key: sk_...
+```
+
+Use this to enable/disable a deployment or configure canary rollouts.
+
+<ParamField body="enabled" type="boolean">
+  Enable or disable the deployment.
+</ParamField>
+
+<ParamField body="canaryModelSpecifier" type="string">
+  Model specifier for the canary variant.
+</ParamField>
+
+<ParamField body="canaryPercent" type="number">
+  Percentage of traffic (0–100) to route to the canary model.
+</ParamField>
+
+## Delete a deployment
+
+```bash
+DELETE /api/deployment/:id
+x-api-key: sk_...
+```
+
+Deleting a deployment instructs all inference nodes to uninstall the model.
+
+<Note>
+The full request/response schema is in the OpenAPI spec at `/api/openapi.json`. Use `xinity act --list-routes` to see all deployment-related routes.
+</Note>

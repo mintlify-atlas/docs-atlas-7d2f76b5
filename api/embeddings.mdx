@@ -1,0 +1,75 @@
+---
+title: "POST /v1/embeddings: generate vector embeddings"
+description: "Generate embedding vectors from text using a deployed embedding model. Returns float arrays suitable for semantic search, RAG pipelines, and clustering."
+---
+
+The `/v1/embeddings` endpoint generates dense vector representations of text. Use it with an embedding model deployed in Xinity to power semantic search, retrieval-augmented generation (RAG), or document clustering — all without sending data to an external service.
+
+## Request
+
+```
+POST /v1/embeddings
+Authorization: Bearer sk_...
+Content-Type: application/json
+```
+
+<ParamField body="model" type="string" required>
+  The `publicSpecifier` of a deployed embedding model. The model must have `type: embedding` in the model catalog.
+</ParamField>
+
+<ParamField body="input" type="string | array" required>
+  A single string or array of strings to embed.
+</ParamField>
+
+## Example
+
+<CodeGroup>
+
+```bash curl
+curl https://your-instance/v1/embeddings \
+  -H "Authorization: Bearer sk_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "nomic-embed",
+    "input": ["The contract expires in 30 days.", "Renewal is automatic."]
+  }'
+```
+
+```python Python
+from openai import OpenAI
+
+client = OpenAI(base_url="https://your-instance/v1", api_key="sk_...")
+
+response = client.embeddings.create(
+    model="nomic-embed",
+    input=["The contract expires in 30 days.", "Renewal is automatic."]
+)
+for item in response.data:
+    print(item.embedding[:5])  # first 5 dimensions
+```
+
+</CodeGroup>
+
+## Response
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "object": "embedding",
+      "index": 0,
+      "embedding": [0.023, -0.014, ...]
+    }
+  ],
+  "model": "nomic-embed",
+  "usage": {
+    "prompt_tokens": 14,
+    "total_tokens": 14
+  }
+}
+```
+
+<Note>
+The model must be deployed with `type: embedding` in the model catalog. Sending a chat request to an embedding model — or an embedding request to a chat model — will return an error.
+</Note>

@@ -1,0 +1,64 @@
+---
+title: "Xinity management REST API overview"
+description: "The Xinity management REST API lives at /api/. Authenticate with an API key to manage deployments, organizations, and keys. OpenAPI schema at /api/openapi.json."
+---
+
+Every operation available in the Xinity dashboard is also available as a REST API call at `https://your-dashboard/api/`. This is the same API the Xinity CLI uses under the hood via `xinity act`. You can automate deployments, manage organizations, rotate keys, and more — all programmatically.
+
+## Authentication
+
+```bash
+x-api-key: sk_...
+# or
+Authorization: Bearer sk_...
+```
+
+Both headers are accepted. Keys are created in the dashboard under **Settings → API Keys**.
+
+## Base URL
+
+```
+https://your-dashboard/api/
+```
+
+## Discover routes
+
+The full OpenAPI schema is served at:
+
+```bash
+curl https://your-dashboard/api/openapi.json
+```
+
+List all routes interactively from the CLI:
+
+```bash
+xinity act --list-routes
+```
+
+## Available resources
+
+<CardGroup cols={2}>
+  <Card title="Deployments" icon="cube" href="/api/deployments">
+    Create, update, enable/disable, and delete model deployments.
+  </Card>
+  <Card title="Organizations" icon="building" href="/api/organizations">
+    Create orgs, invite members, assign roles.
+  </Card>
+  <Card title="API Keys" icon="key" href="/api/api-keys">
+    Create and revoke gateway API keys.
+  </Card>
+  <Card title="Onboarding" icon="flag" href="/cli/act">
+    Run the onboarding wizard via `xinity act onboarding.cli`.
+  </Card>
+</CardGroup>
+
+## Example: list deployments
+
+```bash
+curl https://your-dashboard/api/deployment \
+  -H "x-api-key: sk_..."
+```
+
+<Note>
+The full set of routes, request schemas, and response types is defined in the OpenAPI spec at `/api/openapi.json`. The routes listed in this documentation cover the most common operations.
+</Note>

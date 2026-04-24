@@ -1,0 +1,135 @@
+---
+title: "POST /v1/chat/completions"
+description: "Send a chat completion request to a deployed model. Supports streaming, tool calling, vision inputs, and the full OpenAI chat message format."
+---
+
+The `/v1/chat/completions` endpoint is the primary inference endpoint in Xinity AI. It accepts the same request format as the OpenAI Chat Completions API, so existing SDKs and integrations work without code changes — just update the base URL.
+
+## Request
+
+```
+POST /v1/chat/completions
+Authorization: Bearer sk_...
+Content-Type: application/json
+```
+
+<ParamField body="model" type="string" required>
+  The `publicSpecifier` of a deployed model (e.g. `phi-3-mini`, `qwen3`). Must be in `ready` state and accessible to your API key's organization.
+</ParamField>
+
+<ParamField body="messages" type="array" required>
+  Array of message objects forming the conversation history.
+
+  <Expandable title="Message object fields">
+    <ParamField body="role" type="string" required>
+      One of `system`, `user`, or `assistant`.
+    </ParamField>
+    <ParamField body="content" type="string | array">
+      Text content as a string, or an array of content parts for multimodal (vision) requests.
+    </ParamField>
+  </Expandable>
+</ParamField>
+
+<ParamField body="stream" type="boolean">
+  Set to `true` to receive a server-sent event (SSE) stream. Default: `false`.
+</ParamField>
+
+<ParamField body="temperature" type="number">
+  Sampling temperature between 0 and 2.
+</ParamField>
+
+<ParamField body="max_tokens" type="integer">
+  Maximum tokens to generate in the response.
+</ParamField>
+
+<ParamField body="top_p" type="number">
+  Nucleus sampling probability mass.
+</ParamField>
+
+<ParamField body="stop" type="string | array">
+  One or more sequences where generation stops.
+</ParamField>
+
+<ParamField body="tools" type="array">
+  Tool definitions for function calling. Requires a model deployed with the `tools` tag.
+</ParamField>
+
+## Examples
+
+<CodeGroup>
+
+```bash curl
+curl https://your-instance/v1/chat/completions \
+  -H "Authorization: Bearer sk_..." \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "phi-3-mini",
+    "messages": [{"role": "user", "content": "Summarize this contract."}]
+  }'
+```
+
+```python Python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://your-instance/v1",
+    api_key="sk_..."
+)
+
+response = client.chat.completions.create(
+    model="phi-3-mini",
+    messages=[{"role": "user", "content": "Summarize this contract."}]
+)
+print(response.choices[0].message.content)
+```
+
+```typescript Node.js
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  baseURL: "https://your-instance/v1",
+  apiKey: "sk_...",
+});
+
+const response = await client.chat.completions.create({
+  model: "phi-3-mini",
+  messages: [{ role: "user", content: "Summarize this contract." }],
+});
+console.log(response.choices[0].message.content);
+```
+
+</CodeGroup>
+
+## Streaming
+
+Set `stream: true` to receive tokens as server-sent events:
+
+```bash
+curl https://your-instance/v1/chat/completions \
+  -H "Authorization: Bearer sk_..." \
+  -H "Content-Type: application/json" \
+  -d '{"model": "phi-3-mini", "stream": true, "messages": [{"role": "user", "content": "Hello"}]}'
+```
+
+The response is a stream of `data: {...}` lines terminated with `data: [DONE]`.
+
+## Vision (multimodal)
+
+For models deployed with the `vision` tag, pass image content parts:
+
+```json
+{
+  "model": "phi-3-vision",
+  "messages": [{
+    "role": "user",
+    "content": [
+      {"type": "text", "text": "What is in this image?"},
+      {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,..."}}
+    ]
+  }]
+}
+```
+
+<Note>
+External image URLs are fetched and resolved to data URIs before forwarding to the inference node. Images are stored in SeaweedFS (when configured) to avoid database bloat.
+</Note>

@@ -1,0 +1,175 @@
+---
+title: "Deploy Xinity AI with the CLI on Linux via systemd"
+description: "Install and manage Xinity services as systemd units using the CLI. Covers interactive configuration, secrets isolation, and SSH remote management."
+---
+
+The Xinity CLI is the recommended way to deploy Xinity on any Linux server with systemd. It installs each service as a systemd unit, separates configuration from secrets automatically, and supports managing remote servers over SSH without requiring a second install.
+
+## Prerequisites
+
+- Linux with systemd
+- `curl` and `unzip`
+- Root or sudo access
+
+## Deploy the control plane
+
+<Steps>
+  <Step title="Install the CLI">
+    Download and run the install script. It detects your platform (x64 or arm64), verifies the SHA256 checksum, and installs the binary to `~/.local/bin/xinity`.
+
+    ```bash
+    curl -fsSL https://github.com/xinity-ai/xinity-ai/releases/latest/download/install.sh | bash
+    ```
+
+    To install a specific version:
+
+    ```bash
+    curl -fsSL https://github.com/xinity-ai/xinity-ai/releases/latest/download/install.sh | bash -s -- --version v1.2.0
+    ```
+
+    To install to a different location:
+
+    ```bash
+    curl -fsSL https://github.com/xinity-ai/xinity-ai/releases/latest/download/install.sh | bash -s -- --prefix /usr/local/bin
+    ```
+
+    If `~/.local/bin` is not in your `$PATH`, the installer will tell you what to add to your shell profile.
+  </Step>
+
+  <Step title="Install all control plane components">
+    Run this on the machine that will serve the API and dashboard:
+
+    ```bash
+    xinity up all
+    ```
+
+    This installs the gateway, dashboard, and database as systemd services. The CLI walks through required configuration interactively, separating plain config from secrets automatically.
+
+    To install components one at a time instead:
+
+    ```bash
+    xinity up gateway      # API gateway
+    xinity up dashboard    # Admin dashboard
+    xinity up db           # PostgreSQL migrations and Redis discovery
+    ```
+  </Step>
+
+  <Step title="Create your admin account">
+    After the services are running, create your admin account and organization from the CLI — no browser needed:
+
+    ```bash
+    # Point the CLI at your dashboard
+    xinity configure dashboardUrl http://your-dashboard-url
+
+    # Create your admin account, organization, and API key
+    xinity act onboarding.cli
+    ```
+
+    The onboarding wizard prompts for your name, email, password, and organization name. It saves the dashboard API key to your CLI config automatically.
+
+    Alternatively, open the dashboard URL in a browser and sign up through the web UI.
+  </Step>
+
+  <Step title="Verify the deployment">
+    Run the health check to confirm all services are running correctly:
+
+    ```bash
+    xinity doctor
+    ```
+
+    This checks systemd service states, database connectivity, and service health endpoints. Use `--verbose` for detailed output.
+  </Step>
+</Steps>
+
+## Infrastructure utilities
+
+Before installing the daemon on an inference node, set up the required infrastructure dependencies:
+
+```bash
+xinity up infra-ollama      # Install/update Ollama, configure network binding, write daemon env
+xinity up infra-redis       # Detect/install Redis or Valkey, configure, persist connection URL
+xinity up infra-seaweedfs   # Install SeaweedFS S3-compatible object store
+xinity up infra-postgres    # Standalone PostgreSQL install/start (without migrations)
+```
+
+These commands handle detection, installation, service management, and connectivity testing. They also support `--target-host` for remote setup.
+
+## Remote management
+
+All commands accept `--target-host` to manage a remote Linux server over SSH:
+
+```bash
+xinity up all --target-host user@server
+xinity doctor --target-host user@server
+xinity configure dashboard --target-host user@server
+```
+
+The CLI establishes a persistent SSH connection and caches sudo credentials for the session, so you authenticate once regardless of how many elevated operations are needed.
+
+## Secrets management
+
+The CLI automatically separates configuration from secrets. During `xinity up`, it inspects each service's schema and prompts for secrets separately with masked input.
+
+Every environment variable in a service schema is either **config** (non-sensitive) or a **secret** (marked in the source schema). They are stored and loaded differently:
+
+| Type | Location | Permissions | Loaded via |
+|---|---|---|---|
+| Config | `/etc/xinity-ai/<component>.env` | `644` (readable) | systemd `EnvironmentFile=` |
+| Secrets | `/etc/xinity-ai/secrets/<KEY>` | `600` (root only) | systemd `LoadCredential=` |
+
+At runtime, systemd loads each secret file into an ephemeral credentials directory (`/run/credentials/xinity-ai-<component>/`). The service receives a `KEY_FILE` environment variable pointing to that path and reads the secret from the file. The secret never appears as a plain environment variable in the process environment.
+
+### File layout after `xinity up gateway`
+
+```
+/etc/xinity-ai/
+  gateway.env                    # HOST=0.0.0.0, PORT=4121, ...  (mode 644)
+  secrets/                       # (mode 700)
+    DB_CONNECTION_URL            # postgresql://...               (mode 600)
+    REDIS_URL                    # redis://...                    (mode 600)
+```
+
+### Reconfiguring a service
+
+```bash
+xinity configure gateway
+```
+
+This re-prompts for both config and secrets, then restarts the service automatically to pick up the new values.
+
+### Rotating a secret manually
+
+```bash
+printf '%s' 'new-value' | sudo tee /etc/xinity-ai/secrets/KEY > /dev/null
+sudo systemctl restart xinity-ai-<component>
+```
+
+### The `_FILE` convention
+
+This is the same `_FILE` convention used by the Docker and NixOS deployments. For any variable `KEY`, set `KEY_FILE` to a file path and the service reads it at startup. Direct values take precedence over `_FILE` variants.
+
+## Updates
+
+```bash
+xinity update           # Update all components to the latest release
+xinity update --check   # Check for updates without installing
+```
+
+Individual components can also be updated with `xinity up <component>`, which detects version changes and reconfigures if needed.
+
+## Shell completion
+
+```bash
+# Bash
+xinity completion bash >> ~/.bashrc
+
+# Zsh
+xinity completion zsh > ~/.zsh/completions/_xinity
+
+# Fish
+xinity completion fish > ~/.config/fish/completions/xinity.fish
+```
+
+<Tip>
+  To add GPU inference nodes to your control plane, see [Add GPU inference nodes](/deployment/inference-nodes).
+</Tip>
